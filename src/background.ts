@@ -54,7 +54,9 @@ log.transports.file.format = "[{h}:{i}:{s}.{ms}] [{level}] {text}";
 log.transports.file.level = "warn";
 log.transports.file.fileName = `${prefix}_error.log`;
 
-const isDevelopment = process.env.NODE_ENV !== "production";
+log.error("process.env.NODE_ENV: " + process.env.NODE_ENV);
+const isDevelopment = true;
+log.error("isDevelopment:" + isDevelopment);
 
 if (isDevelopment) {
   app.setPath(
@@ -89,6 +91,7 @@ const appDirPath = path.dirname(app.getPath("exe"));
 if (isDevelopment) {
   dotenv.config({ override: true });
 } else {
+  log.error("appDirPath: " + appDirPath);
   const envPath = path.join(appDirPath, ".env");
   dotenv.config({ path: envPath });
 }
