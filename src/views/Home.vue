@@ -511,6 +511,7 @@ export default defineComponent({
       });
 
       isAcceptRetrieveTelemetryDialogOpenComputed.value =
+        process.env.NODE_ENV == "production" &&
         store.state.acceptRetrieveTelemetry === "Unconfirmed";
 
       isAcceptTermsDialogOpenComputed.value =

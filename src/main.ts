@@ -42,6 +42,6 @@ createApp(App)
       Loading,
     },
   })
-  .use(ipcMessageReceiver, { store })
+  // .use(ipcMessageReceiver, { store })
   .use(markdownItPlugin)
   .mount("#app");

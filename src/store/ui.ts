@@ -268,7 +268,7 @@ export const uiStore: VoiceVoxStoreOptions<UiGetters, UiActions, UiMutations> =
         });
       },
       ON_VUEX_READY() {
-        window.electron.vuexReady();
+        // window.electron.vuexReady();
       },
       async IS_CHARACTER_ORDER_DIALOG_OPEN(
         { state, commit },
@@ -372,7 +372,14 @@ export const uiStore: VoiceVoxStoreOptions<UiGetters, UiActions, UiMutations> =
       },
       async GET_ENGINE_INFOS({ commit }) {
         commit("SET_ENGINE_INFOS", {
-          engineInfos: await window.electron.engineInfos(),
+          engineInfos: [
+            {
+              key: "074fc39e-678b-4c13-8916-ffca8d505d1d",
+              host: "http://127.0.0.1:50021",
+              executionEnabled: false,
+              executionFilePath: "",
+            },
+          ],
         });
       },
       async GET_INHERIT_AUDIOINFO({ commit }) {
