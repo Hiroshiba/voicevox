@@ -157,6 +157,7 @@ export type SavingSetting = {
   audioOutputDevice: string;
 };
 
+// FIXME: engineIdを追加
 export type DefaultStyleId = {
   speakerUuid: string;
   defaultStyleId: number;
@@ -244,21 +245,14 @@ export type ThemeColorType =
   | "primary"
   | "primary-light"
   | "display"
-  | "display-light"
-  | "display-dark"
+  | "display-on-primary"
+  | "display-hyperlink"
   | "background"
-  | "background-light"
-  | "header-background"
-  | "setting-item"
+  | "surface"
   | "warning"
-  | "markdown-color"
-  | "markdown-background"
-  | "markdown-hyperlink"
-  | "header-selected"
-  | "pause-hovered"
+  | "text-splitter-hover"
   | "active-point-focus"
-  | "active-point-focus-hover"
-  | "button-icon";
+  | "active-point-hover";
 
 export type ThemeConf = {
   name: string;
