@@ -17,6 +17,16 @@ const isElectron = process.env.VITE_TARGET === "electron";
 const isBrowser = process.env.VITE_TARGET === "browser";
 
 export default defineConfig((options) => {
+  if (
+    process.platform != "win32" &&
+    process.platform != "linux" &&
+    process.platform != "darwin"
+  ) {
+    throw new Error(
+      `process.platform is ${process.platform}, but it should be win32, linux, darwin.`
+    );
+  }
+
   const shouldEmitSourcemap = ["development", "test"].includes(options.mode);
   process.env.VITE_7Z_BIN_NAME =
     (options.mode === "development"
