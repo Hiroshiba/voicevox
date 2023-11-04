@@ -3,6 +3,14 @@ import { createPartialStore } from "./vuex";
 import { PresetStoreState, PresetStoreTypes, State } from "@/store/type";
 import { Preset, PresetKey, Voice, VoiceId } from "@/type/preload";
 
+type PureFunctionType = (...args: any[]) => any;
+
+const state = {};
+const hoge: PureFunctionType = (draft) => {
+  console.log(draft);
+  console.log(state);
+};
+
 /**
  * configを参照して割り当てるべきpresetKeyとそのPresetを適用すべきかどうかを返す
  *

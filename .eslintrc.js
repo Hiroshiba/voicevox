@@ -12,7 +12,7 @@ module.exports = {
     "@vue/eslint-config-typescript/recommended",
     "@vue/eslint-config-prettier",
   ],
-  plugins: ["import"],
+  plugins: ["import", "local-rules"],
   parser: "vue-eslint-parser",
   parserOptions: {
     ecmaVersion: 2020,
@@ -83,6 +83,7 @@ module.exports = {
           "'!== undefined'ではなく'!= undefined'を使用してください。詳細: https://github.com/VOICEVOX/voicevox/issues/1513",
       },
     ],
+    "local-rules/pure-function-type": "error",
   },
   overrides: [
     {
