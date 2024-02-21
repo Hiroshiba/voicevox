@@ -87,6 +87,8 @@ jobs:
 
       - name: Setup
         run: |
+          set -eu
+
           # playwright
           npx playwright install
 
@@ -109,7 +111,7 @@ jobs:
 
           # mock版エンジンの起動
           cd /tmp/voicevox_engine
-          pip install -r requirements-dev.txt
+          pip install -r requirements.txt -r requirements-dev.txt
           python run.py --enable_mock --port $PORT &
           cd -
 
