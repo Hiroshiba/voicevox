@@ -92,7 +92,7 @@ jobs:
 
           # .env
           sed -i -e 's|"074fc39e-678b-4c13-8916-ffca8d505d1d"|"208cf94d-43d2-4cf5-abc0-9783cac36d29"|' .env.test
-          sed -i -e 's|"executionEnabled": \[\],|"executionEnabled": false,|' .env.test
+          sed -i -e 's|"executionEnabled": true,|"executionEnabled": false,|' .env.test
           # GitHub Actions 環境だとたまに50021が封じられていることがあるので、ランダムなポートを使うようにする
           PORT=$(node -r net -e "server=net.createServer();server.listen(0,()=>{console.log(server.address().port);server.close()})")
           sed -i -e 's|"host": "http://127.0.0.1:50021"|"host": "http://127.0.0.1:'$PORT'"|' .env.test
