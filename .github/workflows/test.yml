@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 env:
-  VOICEVOX_ENGINE_REPO: "VOICEVOX/voicevox_nemo_engine" # 軽いのでNemoを使う
-  VOICEVOX_ENGINE_VERSION: "0.14.0"
+  VOICEVOX_ENGINE_REPO: "VOICEVOX/voicevox_engine"
+  VOICEVOX_ENGINE_COMMIT_HASH: "346e1f7333fd5fdb5c43902e92bf2ac3f082ea1f"
 
 defaults:
   run:
@@ -85,31 +85,33 @@ jobs:
           sudo apt-get install -y xvfb x11-xserver-utils # for electron
           sudo apt-get install -y libsndfile1 # for engine
 
-      - name: Download VOICEVOX ENGINE
-        id: download-engine
-        uses: ./.github/actions/download-engine
-        with:
-          repo: ${{ env.VOICEVOX_ENGINE_REPO }}
-          version: ${{ env.VOICEVOX_ENGINE_VERSION }}
-          dest: ${{ github.workspace }}/voicevox_engine
-          target: ${{ matrix.voicevox_engine_asset_name }}
-
       - name: Setup
         run: |
           # playwright
           npx playwright install
 
-          # run.exe
-          chmod +x ${{ steps.download-engine.outputs.run_path }}
-
           # .env
           sed -i -e 's|"074fc39e-678b-4c13-8916-ffca8d505d1d"|"208cf94d-43d2-4cf5-abc0-9783cac36d29"|' .env.test
-          sed -i -e 's|"../voicevox_engine/run.exe"|"${{ steps.download-engine.outputs.run_path }}"|' .env.test
+          sed -i -e 's|"executionEnabled": \[\],|"executionEnabled": false,|' .env.test
           # GitHub Actions 環境だとたまに50021が封じられていることがあるので、ランダムなポートを使うようにする
           PORT=$(node -r net -e "server=net.createServer();server.listen(0,()=>{console.log(server.address().port);server.close()})")
           sed -i -e 's|"host": "http://127.0.0.1:50021"|"host": "http://127.0.0.1:'$PORT'"|' .env.test
           sed -i -e 's|"executionArgs": \[\],|"executionArgs": ["--port='$PORT'"],|' .env.test
           cp .env.test .env
+
+          # mock版エンジンのダウンロード
+          if [ ! -d /tmp/voicevox_engine ]; then
+            curl -L "https://github.com/${{ env.VOICEVOX_ENGINE_REPO }}/archive/${{ env.VOICEVOX_ENGINE_COMMIT_HASH }}.zip" -o /tmp/voicevox_engine.zip
+            7z x /tmp/voicevox_engine.zip -o/tmp
+            mv /tmp/voicevox_engine-${{ env.VOICEVOX_ENGINE_COMMIT_HASH }} /tmp/voicevox_engine
+            rm /tmp/voicevox_engine.zip
+          fi
+
+          # mock版エンジンの起動
+          cd /tmp/voicevox_engine
+          pip install -r requirements-dev.txt
+          python run.py --enable_mock --port $PORT &
+          cd -
 
       - name: Run npm run test:browser-e2e
         run: |
