@@ -82,6 +82,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.11.3
+          # キャッシュ効かせるためには先にrequirements.txtが必要
+          # ここのインストールのせいで余計に時間がかかる
+          # まあでも正直かなり微妙だった。これだったらモックで歌手返すだけで良い気もする。
 
       - name: Install xvfb and x11-xserver-utils
         if: startsWith(matrix.os, 'ubuntu')
