@@ -51,6 +51,7 @@ import {
   engineIdSchema,
   styleIdSchema,
   EditorType,
+  AccentPhraseKey,
 } from "@/type/preload";
 import { IEngineConnectorFactory } from "@/infrastructures/EngineConnector";
 import {
@@ -61,11 +62,18 @@ import {
 } from "@/components/Dialog/Dialog";
 import { OverlappingNoteInfos } from "@/sing/storeHelper";
 
+/** エディタ用のAccentPhrase */
+export type EditorAccentPhrase = AccentPhrase & { key: AccentPhraseKey };
+
 /**
  * エディタ用のAudioQuery
  */
-export type EditorAudioQuery = Omit<AudioQuery, "outputSamplingRate"> & {
+export type EditorAudioQuery = Omit<
+  AudioQuery,
+  "outputSamplingRate" | "accentPhrases"
+> & {
   outputSamplingRate: number | "engineDefault";
+  accentPhrases: Array<EditorAccentPhrase>;
 };
 
 export type AudioItem = {
@@ -313,8 +321,8 @@ export type AudioStoreTypes = {
   };
 
   SET_AUDIO_QUERY: {
-    mutation: { audioKey: AudioKey; audioQuery: AudioQuery };
-    action(payload: { audioKey: AudioKey; audioQuery: AudioQuery }): void;
+    mutation: { audioKey: AudioKey; audioQuery: EditorAudioQuery };
+    action(payload: { audioKey: AudioKey; audioQuery: EditorAudioQuery }): void;
   };
 
   FETCH_AUDIO_QUERY: {
@@ -322,7 +330,7 @@ export type AudioStoreTypes = {
       text: string;
       engineId: EngineId;
       styleId: StyleId;
-    }): Promise<AudioQuery>;
+    }): Promise<EditorAudioQuery>;
   };
 
   SET_AUDIO_VOICE: {
@@ -330,7 +338,7 @@ export type AudioStoreTypes = {
   };
 
   SET_ACCENT_PHRASES: {
-    mutation: { audioKey: AudioKey; accentPhrases: AccentPhrase[] };
+    mutation: { audioKey: AudioKey; accentPhrases: EditorAccentPhrase[] };
   };
 
   FETCH_ACCENT_PHRASES: {
@@ -339,17 +347,22 @@ export type AudioStoreTypes = {
       engineId: EngineId;
       styleId: StyleId;
       isKana?: boolean;
-    }): Promise<AccentPhrase[]>;
+    }): Promise<EditorAccentPhrase[]>;
   };
 
-  SET_SINGLE_ACCENT_PHRASE: {
-    mutation: {
-      audioKey: AudioKey;
-      accentPhraseIndex: number;
-      accentPhrases: AccentPhrase[];
-    };
-  };
-
+  // SET_SINGLE_ACCENT_PHRASE: {
+  //   mutation: {
+  //     audioKey: AudioKey;
+  //     accentPhraseIndex: number;
+  //     accentPhrases: AccentPhrase[];
+  //   };
+  // };
+  // SET_ACCENT_PHRASES_EDITORID: {
+  //   mutation: {
+  //     audioKey: AudioKey;
+  //   };
+  //   action(payload: { audioKey: AudioKey }): void;
+  // };
   SET_AUDIO_MORA_DATA: {
     mutation: {
       audioKey: AudioKey;
@@ -366,19 +379,19 @@ export type AudioStoreTypes = {
 
   FETCH_MORA_DATA: {
     action(payload: {
-      accentPhrases: AccentPhrase[];
+      accentPhrases: EditorAccentPhrase[];
       engineId: EngineId;
       styleId: StyleId;
-    }): Promise<AccentPhrase[]>;
+    }): Promise<EditorAccentPhrase[]>;
   };
 
   FETCH_AND_COPY_MORA_DATA: {
     action(payload: {
-      accentPhrases: AccentPhrase[];
+      accentPhrases: EditorAccentPhrase[];
       engineId: EngineId;
       styleId: StyleId;
       copyIndexes: number[];
-    }): Promise<AccentPhrase[]>;
+    }): Promise<EditorAccentPhrase[]>;
   };
 
   DEFAULT_PROJECT_FILE_BASE_NAME: {
@@ -489,8 +502,8 @@ export type AudioCommandStoreTypes = {
   COMMAND_CHANGE_AUDIO_TEXT: {
     mutation: { audioKey: AudioKey; text: string } & (
       | { update: "Text" }
-      | { update: "AccentPhrases"; accentPhrases: AccentPhrase[] }
-      | { update: "AudioQuery"; query: AudioQuery }
+      | { update: "AccentPhrases"; accentPhrases: EditorAccentPhrase[] }
+      | { update: "AudioQuery"; query: EditorAudioQuery }
     );
     action(payload: { audioKey: AudioKey; text: string }): void;
   };
@@ -502,11 +515,11 @@ export type AudioCommandStoreTypes = {
         AudioKey,
         | {
             update: "AccentPhrases";
-            accentPhrases: AccentPhrase[];
+            accentPhrases: EditorAccentPhrase[];
           }
         | {
             update: "AudioQuery";
-            query: AudioQuery;
+            query: EditorAudioQuery;
           }
         | {
             update: "OnlyVoice";
@@ -517,7 +530,7 @@ export type AudioCommandStoreTypes = {
   };
 
   COMMAND_CHANGE_ACCENT: {
-    mutation: { audioKey: AudioKey; accentPhrases: AccentPhrase[] };
+    mutation: { audioKey: AudioKey; accentPhrases: EditorAccentPhrase[] };
     action(payload: {
       audioKey: AudioKey;
       accentPhraseIndex: number;
@@ -526,7 +539,7 @@ export type AudioCommandStoreTypes = {
   };
 
   COMMAND_CHANGE_ACCENT_PHRASE_SPLIT: {
-    mutation: { audioKey: AudioKey; accentPhrases: AccentPhrase[] };
+    mutation: { audioKey: AudioKey; accentPhrases: EditorAccentPhrase[] };
     action(
       payload: { audioKey: AudioKey; accentPhraseIndex: number } & (
         | { isPause: false; moraIndex: number }
@@ -540,7 +553,7 @@ export type AudioCommandStoreTypes = {
   };
 
   COMMAND_CHANGE_SINGLE_ACCENT_PHRASE: {
-    mutation: { audioKey: AudioKey; accentPhrases: AccentPhrase[] };
+    mutation: { audioKey: AudioKey; accentPhrases: EditorAccentPhrase[] };
     action(payload: {
       audioKey: AudioKey;
       newPronunciation: string;
