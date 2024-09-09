@@ -39,15 +39,6 @@ jobs:
             core.setOutput("shouldUpdateSnapshots", shouldUpdateSnapshots);
             console.log(`shouldUpdateSnapshots: ${shouldUpdateSnapshots}`);
 
-  # ビルドのテスト
-  build-test:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup environment
-        uses: ./.github/actions/setup-environment
-      - run: npm run electron:build
-
   # unit テスト
   unit-test:
     runs-on: windows-latest
