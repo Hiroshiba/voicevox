@@ -77,7 +77,6 @@
 
 <script setup lang="ts">
 import { computed, ref, nextTick } from "vue";
-import { QInput } from "quasar";
 import { replaceTagIdToTagString, sanitizeFileName } from "@/store/utility";
 import { UnreachableError } from "@/type/utility";
 
@@ -103,7 +102,8 @@ const updateOpenDialog = (isOpen: boolean) => emit("update:openDialog", isOpen);
 const updateFileNamePattern = (pattern: string) =>
   emit("update:template", pattern);
 
-const patternInput = ref<QInput>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const patternInput = ref<any>();
 const maxLength = 128;
 const tagStrings = computed(() =>
   props.availableTags.map((tag) => replaceTagIdToTagString[tag]),
