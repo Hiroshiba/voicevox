@@ -39,6 +39,15 @@ jobs:
             core.setOutput("shouldUpdateSnapshots", shouldUpdateSnapshots);
             console.log(`shouldUpdateSnapshots: ${shouldUpdateSnapshots}`);
 
+  # ビルドのテスト
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/setup-environment
+      - run: npm run electron:build
+
   # unit テスト
   unit-test:
     runs-on: windows-latest
@@ -74,3 +83,151 @@ jobs:
 
           # テスト
           npm run test:storybook -- --url "http://127.0.0.1:$PORT"
+
+  # e2e テスト
+  e2e-test:
+    runs-on: ${{ matrix.os }}
+    needs: [config]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            voicevox_engine_asset_name: linux-cpu
+          - os: macos-latest
+            voicevox_engine_asset_name: macos-x64
+          # TODO: voicevox_nemo_negineがarm64に対応したら変更する
+          # - os: macos-latest
+          #   voicevox_engine_asset_name: macos-arm64
+          - os: windows-latest
+            voicevox_engine_asset_name: windows-cpu
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Install xvfb and x11-xserver-utils
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-xserver-utils # for electron
+          sudo apt-get install -y libsndfile1 # for engine
+
+      - name: Download VOICEVOX ENGINE
+        id: download-engine
+        uses: ./.github/actions/download-engine
+        with:
+          repo: ${{ env.VOICEVOX_ENGINE_REPO }}
+          version: ${{ env.VOICEVOX_ENGINE_VERSION }}
+          dest: ${{ github.workspace }}/voicevox_engine
+          target: ${{ matrix.voicevox_engine_asset_name }}
+
+      - name: Setup
+        run: |
+          # playwright
+          npx playwright install
+
+          # run.exe
+          chmod +x ${{ steps.download-engine.outputs.run_path }}
+
+          # .env
+          sed -i -e 's|"074fc39e-678b-4c13-8916-ffca8d505d1d"|"208cf94d-43d2-4cf5-abc0-9783cac36d29"|' .env.test
+          sed -i -e 's|"../voicevox_engine/run.exe"|"${{ steps.download-engine.outputs.run_path }}"|' .env.test
+          # GitHub Actions 環境だとたまに50021が封じられていることがあるので、ランダムなポートを使うようにする
+          PORT=$(node -r net -e "server=net.createServer();server.listen(0,()=>{console.log(server.address().port);server.close()})")
+          sed -i -e 's|"host": "http://127.0.0.1:50021"|"host": "http://127.0.0.1:'$PORT'"|' .env.test
+          sed -i -e 's|"executionArgs": \[\],|"executionArgs": ["--port='$PORT'"],|' .env.test
+          cp .env.test .env
+
+      - name: Run npm run test:browser-e2e
+        run: |
+          if [ -n "${{ runner.debug }}" ]; then
+            export DEBUG="pw:browser*"
+          fi
+          ARGS=""
+          if [[ ${{ needs.config.outputs.shouldUpdateSnapshots }} == 'true' ]]; then
+            ARGS="--update-snapshots"
+          fi
+          npm run test:browser-e2e -- $ARGS
+
+      - name: Run npm run test:electron-e2e
+        run: |
+          if [ -n "${{ runner.debug }}" ]; then
+            export DEBUG="pw:browser*"
+          fi
+          if [[ ${{ matrix.os }} == ubuntu-* ]]; then
+            xvfb-run --auto-servernum npm run test:electron-e2e
+          else
+            npm run test:electron-e2e
+          fi
+
+      - name: Upload playwright report to artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: playwright-report
+
+      - name: Collect patch for snapshots
+        if: needs.config.outputs.shouldUpdateSnapshots == 'true'
+        run: |
+          git add --intent-to-add tests/  # git diff に表示されるようにする
+          git diff tests/  # ロギング用
+          git diff --binary tests/ > patch-${{ matrix.os }}.diff
+
+      - name: Upload patch to artifact
+        if: needs.config.outputs.shouldUpdateSnapshots == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-snapshots-${{ matrix.os }}
+          path: patch-${{ matrix.os }}.diff
+
+  commit-snapshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: [config, e2e-test]
+    if: needs.config.outputs.shouldUpdateSnapshots == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updated-snapshots-*
+          path: patches
+          merge-multiple: true
+
+      - name: Commit updated snapshots
+        run: |
+          # パッチを適用
+          for patch in patches/*.diff; do
+            git apply --allow-empty $patch
+            rm $patch
+          done
+
+          # 変更があるかチェック
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add tests/
+            git commit -m "（スナップショットを更新）"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Disallowed licenses check
+        run: npm run license:generate -- -o voicevox_licenses.json
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run markdownlint
