@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { userEvent, within, expect, waitFor } from "@storybook/test";
 
 import { Meta, StoryObj } from "@storybook/vue3";
