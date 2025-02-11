@@ -38,7 +38,7 @@ import {
   EngineId,
   TextAsset,
 } from "@/type/preload";
-import { isMac, isProduction } from "@/helpers/platform";
+import { isMac } from "@/helpers/platform";
 import { createLogger } from "@/helpers/log";
 
 type SingleInstanceLockData = {
@@ -244,25 +244,6 @@ function checkMultiEngineEnabled(): boolean {
   }
   return enabled;
 }
-
-function getArgv(): string[] {
-  // 製品版でmacOS以外の場合、引数はargv[1]以降をそのまま
-  if (isProduction) {
-    if (!isMac) {
-      return process.argv.slice(1);
-    }
-  }
-  // 開発版の場合、引数は`--`がある場合は`--`以降、無い場合は引数なしとして扱う
-  else {
-    const index = process.argv.indexOf("--");
-    if (index !== -1) {
-      return process.argv.slice(index + 1);
-    }
-  }
-  return [];
-}
-
-let initialFilePath: string | undefined = getArgv()[0];
 
 const menuTemplateForMac: Electron.MenuItemConstructorOptions[] = [
   {
