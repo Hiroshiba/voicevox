@@ -374,12 +374,7 @@ registerIpcMainHandle<IpcMainHandle>({
   },
 
   GET_INITIAL_PROJECT_FILE_PATH: async () => {
-    if (
-      initialFilePath &&
-      fs.existsSync(initialFilePath) &&
-      fs.statSync(initialFilePath).isFile() &&
-      initialFilePath.endsWith(".vvproj")
-    ) {
+    if (initialFilePath && initialFilePath.endsWith(".vvproj")) {
       return initialFilePath;
     }
   },
