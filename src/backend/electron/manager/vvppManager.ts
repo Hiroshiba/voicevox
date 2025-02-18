@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { moveFile } from "move-file";
-import { app, dialog } from "electron";
+import { dialog } from "electron";
 import AsyncLock from "async-lock";
 import {
   EngineId,
@@ -49,15 +49,21 @@ const lockKey = "lock-key-for-vvpp-manager";
 //
 // エンジンを停止してからではないとディレクトリを削除できないため、このような実装になっている。
 export class VvppManager {
-  vvppEngineDir: string;
+  private vvppEngineDir: string;
+  private tmpDir: string;
 
-  willDeleteEngineIds: Set<EngineId>;
-  willReplaceEngineDirs: { from: string; to: string; engineId: EngineId }[];
+  private willDeleteEngineIds: Set<EngineId>;
+  private willReplaceEngineDirs: {
+    from: string;
+    to: string;
+    engineId: EngineId;
+  }[];
 
   private lock = new AsyncLock();
 
-  constructor({ vvppEngineDir }: { vvppEngineDir: string }) {
-    this.vvppEngineDir = vvppEngineDir;
+  constructor(params: { vvppEngineDir: string; tmpDir: string }) {
+    this.vvppEngineDir = params.vvppEngineDir;
+    this.tmpDir = params.tmpDir;
     this.willDeleteEngineIds = new Set();
     this.willReplaceEngineDirs = [];
   }
@@ -131,7 +137,7 @@ export class VvppManager {
     const manifest = await new VvppFileExtractor({
       vvppLikeFilePath: vvppPath,
       outputDir: tmpEngineDir,
-      tmpDir: app.getPath("temp"),
+      tmpDir: this.tmpDir,
       callbacks,
     }).extract();
 
@@ -253,8 +259,11 @@ export default VvppManager;
 
 let manager: VvppManager | undefined;
 
-export function initializeVvppManager(payload: { vvppEngineDir: string }) {
-  manager = new VvppManager(payload);
+export function initializeVvppManager(params: {
+  vvppEngineDir: string;
+  tmpDir: string;
+}) {
+  manager = new VvppManager(params);
 }
 
 export function getVvppManager() {
