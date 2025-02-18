@@ -12,10 +12,9 @@ import { errorToMessage } from "@/helpers/errorHelper";
 import { VvppFileExtractor } from "@/backend/electron/vvppFile";
 import { ProgressCallback } from "@/helpers/progressHelper";
 import { createLogger } from "@/helpers/log";
+import { isWindows } from "@/helpers/platform";
 
 const log = createLogger("VvppManager");
-
-const isNotWin = process.platform !== "win32";
 
 export const isVvppFile = (filePath: string) => {
   return (
@@ -53,7 +52,7 @@ export class VvppManager {
   vvppEngineDir: string;
 
   willDeleteEngineIds: Set<EngineId>;
-  willReplaceEngineDirs: { from: string; to: string }[];
+  willReplaceEngineDirs: { from: string; to: string; engineId: EngineId }[];
 
   private lock = new AsyncLock();
 
@@ -63,11 +62,8 @@ export class VvppManager {
     this.willReplaceEngineDirs = [];
   }
 
-  markWillMove(from: string, to: string) {
-    this.willReplaceEngineDirs.push({
-      from,
-      to: path.join(this.vvppEngineDir, to),
-    });
+  markWillMove(params: { from: string; to: string; engineId: EngineId }) {
+    this.willReplaceEngineDirs.push(params);
   }
 
   markWillDelete(engineId: EngineId) {
@@ -79,8 +75,24 @@ export class VvppManager {
     return `${manifest.name.replace(/[\s<>:"/\\|?*]+/g, "_")}+${manifest.uuid}`;
   }
 
-  isEngineDirName(dir: string, manifest: MinimumEngineManifestType) {
-    return dir.endsWith(`+${manifest.uuid}`);
+  buildEngineDirPath(manifest: MinimumEngineManifestType) {
+    return path.join(this.vvppEngineDir, this.toValidDirName(manifest));
+  }
+
+  isEngineDirName(dir: string, engineId: EngineId) {
+    return dir.endsWith(`+${engineId}`);
+  }
+
+  async getInstalledEngineDir(engineId: EngineId) {
+    const dirNames = (await fs.promises.readdir(this.vvppEngineDir)).filter(
+      (dir) => this.isEngineDirName(dir, engineId),
+    );
+    if (dirNames.length > 1) {
+      throw new Error("Multiple or no installed engine directories found.");
+    } else if (dirNames.length == 0) {
+      return undefined;
+    }
+    return path.join(this.vvppEngineDir, dirNames[0]);
   }
 
   canUninstall(engineInfo: EngineInfo) {
@@ -113,31 +125,44 @@ export class VvppManager {
     vvppPath: string,
     callbacks?: { onProgress?: ProgressCallback },
   ) {
-    const { outputDir, manifest } = await new VvppFileExtractor({
+    const tmpEngineDir = this.buildTemporaryEngineDir(this.vvppEngineDir);
+    log.info("Extracting vvpp to", tmpEngineDir);
+
+    const manifest = await new VvppFileExtractor({
       vvppLikeFilePath: vvppPath,
-      vvppEngineDir: this.vvppEngineDir,
+      outputDir: tmpEngineDir,
       tmpDir: app.getPath("temp"),
       callbacks,
     }).extract();
 
-    const dirName = this.toValidDirName(manifest);
-    const engineDirectory = path.join(this.vvppEngineDir, dirName);
-    const oldEngineDirName = (
-      await fs.promises.readdir(this.vvppEngineDir)
-    ).find((dir) => {
-      return this.isEngineDirName(dir, manifest);
-    });
-    if (oldEngineDirName) {
-      this.markWillMove(outputDir, dirName);
+    await this.applyPermissions(tmpEngineDir, manifest.command);
+
+    const hasOldEngine = await this.hasOldEngine(manifest.uuid);
+    const engineDir = this.buildEngineDirPath(manifest);
+    if (hasOldEngine) {
+      this.markWillMove({
+        from: tmpEngineDir,
+        to: engineDir,
+        engineId: manifest.uuid,
+      });
     } else {
-      await moveFile(outputDir, engineDirectory);
+      await moveFile(tmpEngineDir, engineDir);
     }
-    if (isNotWin) {
-      await fs.promises.chmod(
-        path.join(engineDirectory, manifest.command),
-        "755",
-      );
+  }
+
+  private buildTemporaryEngineDir(vvppEngineDir: string): string {
+    const nonce = new Date().getTime().toString();
+    return path.join(vvppEngineDir, ".tmp", nonce);
+  }
+
+  private async applyPermissions(engineDirectory: string, commandPath: string) {
+    if (!isWindows) {
+      await fs.promises.chmod(path.join(engineDirectory, commandPath), "755");
     }
+  }
+
+  private async hasOldEngine(engineId: EngineId) {
+    return (await this.getInstalledEngineDir(engineId)) != undefined;
   }
 
   async handleMarkedEngineDirs() {
@@ -146,61 +171,54 @@ export class VvppManager {
   private async _handleMarkedEngineDirs() {
     await Promise.all(
       [...this.willDeleteEngineIds].map(async (engineId) => {
-        let deletingEngineDir: string | undefined = undefined;
-        for (const engineDir of await fs.promises.readdir(this.vvppEngineDir)) {
-          if (engineDir.endsWith("+" + engineId)) {
-            deletingEngineDir = path.join(this.vvppEngineDir, engineDir);
-            break;
-          }
-        }
-        if (deletingEngineDir == null) {
+        const deletingEngineDir = await this.getInstalledEngineDir(engineId);
+        if (deletingEngineDir == undefined) {
           throw new Error("エンジンが見つかりませんでした。");
         }
 
-        for (let i = 0; i < 5; i++) {
-          try {
-            await fs.promises.rm(deletingEngineDir, {
+        try {
+          await retry(() =>
+            fs.promises.rm(deletingEngineDir, {
               recursive: true,
               force: true,
-            });
-            log.info(`Engine ${engineId} deleted successfully.`);
-            break;
-          } catch (e) {
-            if (i === 4) {
-              log.error(e);
-              dialog.showErrorBox(
-                "エンジン削除エラー",
-                `エンジンの削除に失敗しました。エンジンのフォルダを手動で削除してください。\n${deletingEngineDir}\nエラー内容: ${errorToMessage(e)}`,
-              );
-            } else {
-              log.error("Failed to delete engine directory: ", e, ", retrying");
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-          }
+            }),
+          );
+          log.info(`Engine ${engineId} deleted successfully.`);
+        } catch (e) {
+          log.error("Failed to delete engine directory: ", e);
+          dialog.showErrorBox(
+            "エンジン削除エラー",
+            `エンジンの削除に失敗しました。エンジンのフォルダを手動で削除してください。\n${deletingEngineDir}\nエラー内容: ${errorToMessage(e)}`,
+          );
         }
       }),
     );
     this.willDeleteEngineIds.clear();
+
     await Promise.all(
-      [...this.willReplaceEngineDirs].map(async ({ from, to }) => {
-        for (let i = 0; i < 5; i++) {
-          try {
-            await fs.promises.rm(to, { recursive: true });
-            await moveFile(from, to);
-            log.info(`Renamed ${from} to ${to}`);
-            break;
-          } catch (e) {
-            if (i === 4) {
-              log.error(e);
-              dialog.showErrorBox(
-                "エンジン追加エラー",
-                `エンジンの追加に失敗しました。エンジンのフォルダを手動で移動してください。\n${from}\nエラー内容: ${errorToMessage(e)}`,
-              );
-            } else {
-              log.error("Failed to rename engine directory: ", e, ", retrying");
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-          }
+      [...this.willReplaceEngineDirs].map(async ({ from, to, engineId }) => {
+        const deletingEngineDir = await this.getInstalledEngineDir(engineId);
+        if (deletingEngineDir == undefined) {
+          throw new Error("エンジンが見つかりませんでした。");
+        }
+
+        try {
+          await retry(() =>
+            fs.promises.rm(deletingEngineDir, {
+              recursive: true,
+              force: true,
+            }),
+          );
+          log.info(`Engine ${engineId} deleted successfully.`);
+
+          await retry(() => moveFile(from, to));
+          log.info(`Renamed ${from} to ${to}`);
+        } catch (e) {
+          log.error("Failed to rename engine directory: ", e);
+          dialog.showErrorBox(
+            "エンジン追加エラー",
+            `エンジンの追加に失敗しました。エンジンのフォルダを手動で移動してください。\n${from} -> ${to}\nエラー内容: ${errorToMessage(e)}`,
+          );
         }
       }),
     );
@@ -211,6 +229,23 @@ export class VvppManager {
     return (
       this.willReplaceEngineDirs.length > 0 || this.willDeleteEngineIds.size > 0
     );
+  }
+}
+
+async function retry(fn: () => Promise<void>) {
+  const maxRetries = 5;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await fn();
+      break;
+    } catch (e) {
+      if (i === maxRetries - 1) {
+        throw e;
+      } else {
+        log.warn(`Retrying... (${i + 1}/${maxRetries}):`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
   }
 }
 
