@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { getOrThrowIpcResult } from "../ipcResultHelper";
+import {
+  getOrThrowIpcResult,
+  IpcResult,
+  wrapToIpcResult,
+} from "../ipcResultHelper";
 import { type IpcRendererInvoke } from "./ipc";
 import {
   ConfigType,
@@ -226,4 +230,21 @@ const api: Sandbox = {
   },
 };
 
-contextBridge.exposeInMainWorld(SandboxKey, api);
+// APIのラッピング用のヘルパー関数
+function wrapApi(api: Sandbox): Sandbox {
+  return new Proxy(api, {
+    get: (target, prop: keyof Sandbox) => {
+      const original = target[prop];
+      if (typeof original !== "function")
+        throw new Error(`${prop} is not a function`);
+      return (...args: unknown[]) => {
+        // @ts-expect-error 型パズルが難しいので無視
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return wrapToIpcResult(() => original(...args));
+      };
+    },
+  });
+}
+
+// APIをラップしてからContextBridgeを通してmainWorldに公開
+contextBridge.exposeInMainWorld(SandboxKey, { ...wrapApi(api) });
