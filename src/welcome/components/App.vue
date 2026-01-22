@@ -17,34 +17,32 @@
                   以下のエンジン一覧から、インストールまたは更新を行ってください。
                 </BaseDocumentView>
 
-                <div v-if="onlineFetchErrorMessage" class="engine-error">
-                  <div class="engine-error-text">
-                    オンラインからエンジン情報を取得できませんでした。
-                    ネットワークの状態を確認するか、再試行してください。
-                    <p
-                      v-if="onlineFetchErrorMessage"
-                      class="engine-error-detail"
-                    >
-                      {{ onlineFetchErrorMessage }}
-                    </p>
+                <template v-if="engineInfosState.kind === 'fetched'">
+                  <div
+                    v-if="engineInfosState.online.kind === 'error'"
+                    class="engine-error"
+                  >
+                    <div class="engine-error-text">
+                      オンラインからエンジン情報を取得できませんでした。
+                      ネットワークの状態を確認するか、再試行してください。
+                      <p class="engine-error-detail">
+                        {{ engineInfosState.online.message }}
+                      </p>
+                    </div>
+                    <div class="engine-error-actions">
+                      <BaseButton
+                        label="再試行"
+                        variant="primary"
+                        @click="fetchInstalledEngineInfos"
+                      />
+                    </div>
                   </div>
-                  <div class="engine-error-actions">
-                    <BaseButton
-                      label="再試行"
-                      variant="primary"
-                      :disabled="
-                        loadingEngineInfosState === 'loadingLocal' ||
-                        loadingEngineInfosState === 'fetchingLatest'
-                      "
-                      @click="fetchInstalledEngineInfos"
-                    />
-                  </div>
-                </div>
+                </template>
 
                 <div
                   v-if="
-                    loadingEngineInfosState === 'uninitialized' ||
-                    loadingEngineInfosState === 'loadingLocal'
+                    engineInfosState.kind === 'uninitialized' ||
+                    engineInfosState.kind === 'loadingLocal'
                   "
                   class="engine-loading"
                 >
@@ -53,25 +51,20 @@
                 </div>
                 <template v-else>
                   <EngineCard
-                    v-for="engine in engineInfosForDisplay"
-                    :key="engine.package.engineId"
-                    :engineName="engine.package.engineName"
-                    :localInfo="engine.localInfo"
-                    :remoteInfo="engine.remoteInfo"
-                    :selectedRuntimeTarget="getSelectedRuntimeTarget(engine)"
-                    :runtimeSelectDisabled="
-                      isDownloadingOrInstalling(engine.package.engineId)
-                    "
-                    :progressInfo="getEngineProgress(engine.package.engineId)"
+                    v-for="item in engineCardItems"
+                    :key="item.localInfo.package.engineId"
+                    :engineName="item.localInfo.package.engineName"
+                    :localInfo="item.localInfo"
+                    :onlineInfo="getOnlineInfo(item)"
                     @selectRuntimeTarget="
                       (target) =>
                         setSelectedRuntimeTarget(
-                          engine.package.engineId,
+                          item.localInfo.package.engineId,
                           target,
                         )
                     "
                     @installEngine="
-                      () => installEngine(engine.package.engineId)
+                      () => installEngine(item.localInfo.package.engineId)
                     "
                   />
                 </template>
@@ -92,7 +85,6 @@ import WelcomeHeader from "./WelcomeHeader.vue";
 import EngineCard from "./EngineCard.vue";
 import ErrorBoundary from "@/components/ErrorBoundary.vue";
 import {
-  EnginePackageBase,
   EnginePackageLocalInfo,
   EnginePackageRemoteInfo,
 } from "@/backend/electron/engineAndVvppController";
@@ -103,70 +95,109 @@ import { themes } from "@/domain/theme";
 import BaseButton from "@/components/Base/BaseButton.vue";
 import BaseScrollArea from "@/components/Base/BaseScrollArea.vue";
 import BaseDocumentView from "@/components/Base/BaseDocumentView.vue";
-import { UnreachableError } from "@/type/utility";
+import {
+  assertNonNullable,
+  ExhaustiveError,
+  UnreachableError,
+} from "@/type/utility";
 
-type DisplayEngineInfo = {
-  package: EnginePackageBase;
-  localInfo: EnginePackageLocalInfo;
-  remoteInfo: EnginePackageRemoteInfo | undefined;
+type OnlineEngineInfosState =
+  | { kind: "ok"; remote: EnginePackageRemoteInfo[] }
+  | { kind: "error"; message: string };
+
+type EngineInfosState =
+  | { kind: "uninitialized" }
+  | { kind: "loadingLocal" }
+  | { kind: "fetchingLatest"; local: EnginePackageLocalInfo[] }
+  | {
+      kind: "fetched";
+      local: EnginePackageLocalInfo[];
+      online: OnlineEngineInfosState;
+    };
+
+const engineInfosState = ref<EngineInfosState>({ kind: "uninitialized" });
+
+const runtimeTargetSelections = ref<Partial<Record<EngineId, RuntimeTarget>>>(
+  {},
+);
+
+const getRemoteInfoOrThrow = (engineId: EngineId): EnginePackageRemoteInfo => {
+  const state = engineInfosState.value;
+  if (state.kind !== "fetched" || state.online.kind !== "ok") {
+    throw new UnreachableError();
+  }
+  const remoteInfo = state.online.remote.find(
+    (remote) => remote.package.engineId === engineId,
+  );
+  assertNonNullable(remoteInfo);
+  return remoteInfo;
 };
 
-const localEngineInfos = ref<EnginePackageLocalInfo[] | undefined>(undefined);
-const remoteEngineInfos = ref<EnginePackageRemoteInfo[] | undefined>(undefined);
-const loadingEngineInfosState = ref<
-  "uninitialized" | "loadingLocal" | "fetchingLatest" | "fetched"
->("uninitialized");
-const onlineFetchErrorMessage = ref<string | null>(null);
-const engineInfosForDisplay = computed<DisplayEngineInfo[]>(() => {
-  const localInfos = localEngineInfos.value;
-  if (!localInfos) {
-    return [];
+function getDefaultRuntimeTarget(
+  remoteInfo: EnginePackageRemoteInfo,
+): RuntimeTarget {
+  let defaultTargetInfo = remoteInfo.availableRuntimeTargets.find(
+    (targetInfo) => targetInfo.packageInfo.displayInfo.default,
+  );
+  defaultTargetInfo ??= remoteInfo.availableRuntimeTargets[0]; // NOTE: defaultは必ずあるはずだけど、重要な箇所なので念のためフォールバックを用意
+  assertNonNullable(defaultTargetInfo);
+  return defaultTargetInfo.target;
+}
+
+function getSelectedRuntimeTarget(
+  engineId: EngineId,
+  remoteInfo: EnginePackageRemoteInfo,
+): RuntimeTarget {
+  return (
+    runtimeTargetSelections.value[engineId] ??
+    getDefaultRuntimeTarget(remoteInfo)
+  );
+}
+
+type EngineCardItem =
+  | { kind: "localOnly"; localInfo: EnginePackageLocalInfo }
+  | {
+      kind: "withRemote";
+      localInfo: EnginePackageLocalInfo;
+      remoteInfo: EnginePackageRemoteInfo;
+      selectedRuntimeTarget: RuntimeTarget;
+    };
+
+const engineCardItems = computed<EngineCardItem[]>(() => {
+  const state = engineInfosState.value;
+  if (state.kind === "uninitialized" || state.kind === "loadingLocal") {
+    throw new UnreachableError();
   }
-  return localInfos.map((localInfo) => {
-    const remoteInfo = remoteEngineInfos.value?.find(
+  if (state.kind !== "fetched" || state.online.kind !== "ok") {
+    return state.local.map((localInfo) => ({ kind: "localOnly", localInfo }));
+  }
+  const remoteInfos = state.online.remote;
+  return state.local.map((localInfo) => {
+    const remoteInfo = remoteInfos.find(
       (remote) => remote.package.engineId === localInfo.package.engineId,
     );
+    assertNonNullable(remoteInfo);
     return {
-      package: localInfo.package,
+      kind: "withRemote",
       localInfo,
       remoteInfo,
+      selectedRuntimeTarget: getSelectedRuntimeTarget(
+        localInfo.package.engineId,
+        remoteInfo,
+      ),
     };
   });
 });
-const runtimeTargetSelections = ref<
-  Record<EngineId, RuntimeTarget | undefined>
->({});
 
-const getDefaultRuntimeTarget = (
-  engineInfo: DisplayEngineInfo,
-): RuntimeTarget | undefined => {
-  const remoteInfo = engineInfo.remoteInfo;
-  if (!remoteInfo) {
-    return undefined;
-  }
-  return (
-    remoteInfo.availableRuntimeTargets.find(
-      (targetInfo) => targetInfo.packageInfo.displayInfo.default,
-    ) || remoteInfo.availableRuntimeTargets[0]
-  ).target;
-};
-
-const getSelectedRuntimeTarget = (
-  engineInfo: DisplayEngineInfo,
-): RuntimeTarget | undefined => {
-  return (
-    runtimeTargetSelections.value[engineInfo.package.engineId] ??
-    getDefaultRuntimeTarget(engineInfo)
-  );
+const getInstallRuntimeTarget = (engineId: EngineId): RuntimeTarget => {
+  const remoteInfo = getRemoteInfoOrThrow(engineId);
+  return getSelectedRuntimeTarget(engineId, remoteInfo);
 };
 
 const setSelectedRuntimeTarget = (
   engineId: EngineId,
-  target: RuntimeTarget | undefined,
+  target: RuntimeTarget,
 ) => {
-  if (!target) {
-    throw new UnreachableError();
-  }
   runtimeTargetSelections.value = {
     ...runtimeTargetSelections.value,
     [engineId]: target,
@@ -177,23 +208,27 @@ type EngineProgressInfo = {
   progress: number;
   type: "download" | "install";
 };
-const engineProgressInfo = ref<Record<EngineId, EngineProgressInfo>>(
-  {} as Record<EngineId, EngineProgressInfo>,
+const engineProgressInfo = ref<Partial<Record<EngineId, EngineProgressInfo>>>(
+  {},
 );
 const launchEditorDisabledReason = computed<string | null>(() => {
-  if (
-    loadingEngineInfosState.value === "uninitialized" ||
-    loadingEngineInfosState.value === "loadingLocal"
-  ) {
-    return "エンジン情報を読み込み中です。";
+  const state = engineInfosState.value;
+  switch (state.kind) {
+    case "uninitialized":
+    case "loadingLocal":
+      return "エンジン情報を読み込み中です。";
+    case "fetchingLatest":
+    case "fetched":
+      break;
+    default:
+      throw new ExhaustiveError(state);
   }
   if (Object.keys(engineProgressInfo.value).length > 0) {
     return "エンジンのインストールまたは更新中です。";
   }
-  const engineInfos = localEngineInfos.value ?? [];
   if (
-    !engineInfos.some(
-      (engineInfo) => engineInfo.installed.status !== "notInstalled",
+    state.local.every(
+      (engineInfo) => engineInfo.installed.status === "notInstalled",
     )
   ) {
     return "エンジンがインストールされていません。";
@@ -214,14 +249,25 @@ const isDownloadingOrInstalling = (engineId: EngineId) => {
   return progress != undefined && progress < 100;
 };
 
+const getOnlineInfo = (item: EngineCardItem) => {
+  if (item.kind !== "withRemote") {
+    return undefined;
+  }
+  const engineId = item.localInfo.package.engineId;
+  return {
+    remoteInfo: item.remoteInfo,
+    selectedRuntimeTarget: item.selectedRuntimeTarget,
+    runtimeSelectDisabled: isDownloadingOrInstalling(engineId),
+    progressInfo: getEngineProgress(engineId),
+  };
+};
+
 const installEngine = async (engineId: EngineId) => {
-  const engineInfo = engineInfosForDisplay.value.find(
-    (info) => info.package.engineId === engineId,
-  );
-  const target = engineInfo ? getSelectedRuntimeTarget(engineInfo) : undefined;
-  if (!target) {
+  const state = engineInfosState.value;
+  if (state.kind !== "fetched" || state.online.kind !== "ok") {
     return;
   }
+  const target = getInstallRuntimeTarget(engineId);
   engineProgressInfo.value[engineId] = { progress: 0, type: "download" };
   try {
     console.log(`Engine package ${engineId} installation started.`);
@@ -249,18 +295,19 @@ const switchToMainWindow = () => {
 };
 
 const fetchInstalledEngineInfos = async () => {
-  onlineFetchErrorMessage.value = null;
-  loadingEngineInfosState.value = "loadingLocal";
-  localEngineInfos.value =
-    await window.welcomeBackend.fetchEnginePackageLocalInfos();
-  loadingEngineInfosState.value = "fetchingLatest";
-  remoteEngineInfos.value = undefined;
+  engineInfosState.value = { kind: "loadingLocal" };
+  const local = await window.welcomeBackend.fetchEnginePackageLocalInfos();
+  engineInfosState.value = { kind: "fetchingLatest", local };
   try {
-    remoteEngineInfos.value =
+    const remote =
       await window.welcomeBackend.fetchLatestEnginePackageRemoteInfos();
-    onlineFetchErrorMessage.value = null;
+    engineInfosState.value = {
+      kind: "fetched",
+      local,
+      online: { kind: "ok", remote },
+    };
   } catch (error) {
-    onlineFetchErrorMessage.value =
+    const message =
       error instanceof Error
         ? error.message
         : "エンジン情報のオンライン取得に失敗しました。";
@@ -268,8 +315,11 @@ const fetchInstalledEngineInfos = async () => {
       "エンジン情報のオンライン取得に失敗しました",
       error,
     );
-  } finally {
-    loadingEngineInfosState.value = "fetched";
+    engineInfosState.value = {
+      kind: "fetched",
+      local,
+      online: { kind: "error", message },
+    };
   }
 };
 

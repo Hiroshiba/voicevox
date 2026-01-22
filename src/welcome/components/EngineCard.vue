@@ -7,12 +7,16 @@
       }}</span>
     </div>
     <div class="engine-meta">
-      <div>最新バージョン：{{ latestVersionLabel }}</div>
+      <div>
+        最新バージョン：{{
+          onlineInfo ? selectedPackageInfo.version : "（読み込み中）"
+        }}
+      </div>
       <div v-if="localInfo.installed.status === 'installed'">
         インストール済み：{{ localInfo.installed.installedVersion }}
       </div>
     </div>
-    <div v-if="progressInfo" class="engine-progress">
+    <div v-if="onlineInfo?.progressInfo" class="engine-progress">
       <div class="engine-progress-label">{{ progressTypeLabel }}</div>
       <div class="engine-progress-bar">
         <div
@@ -22,11 +26,11 @@
       </div>
       <div class="engine-progress-value">{{ progressPercentage }}%</div>
     </div>
-    <div class="engine-actions">
+    <div v-if="onlineInfo" class="engine-actions">
       <div class="engine-target-select">
         <BaseSelect
-          :disabled="runtimeSelectDisabled"
-          :modelValue="selectedRuntimeTarget"
+          :disabled="onlineInfo.runtimeSelectDisabled"
+          :modelValue="onlineInfo.selectedRuntimeTarget"
           @update:modelValue="handleRuntimeTargetChange"
         >
           <BaseSelectItem
@@ -59,7 +63,7 @@ import {
 } from "@/backend/electron/engineAndVvppController";
 import type { RuntimeTarget } from "@/domain/defaultEngine/latetDefaultEngine";
 
-import { ExhaustiveError } from "@/type/utility";
+import { assertNonNullable, ExhaustiveError } from "@/type/utility";
 import { sizeToHumanReadable } from "@/helpers/sizeHelper";
 
 type DisplayStatus = "notInstalled" | "installed" | "outdated" | "latest";
@@ -74,14 +78,17 @@ type RuntimeTargetOption = {
 };
 type RuntimeTargetInfo =
   EnginePackageRemoteInfo["availableRuntimeTargets"][number];
+type OnlineInfo = {
+  remoteInfo: EnginePackageRemoteInfo;
+  selectedRuntimeTarget: RuntimeTarget;
+  runtimeSelectDisabled: boolean;
+  progressInfo?: EngineProgressInfo;
+};
 
 const props = defineProps<{
   engineName: string;
   localInfo: EnginePackageLocalInfo;
-  remoteInfo?: EnginePackageRemoteInfo;
-  selectedRuntimeTarget?: RuntimeTarget;
-  runtimeSelectDisabled: boolean;
-  progressInfo?: EngineProgressInfo;
+  onlineInfo?: OnlineInfo;
 }>();
 
 const emit = defineEmits<{
@@ -90,7 +97,8 @@ const emit = defineEmits<{
 }>();
 
 const availableRuntimeTargets = computed(() => {
-  return props.remoteInfo?.availableRuntimeTargets ?? [];
+  assertNonNullable(props.onlineInfo);
+  return props.onlineInfo.remoteInfo.availableRuntimeTargets;
 });
 
 const runtimeTargetOptions = computed<RuntimeTargetOption[]>(() =>
@@ -107,31 +115,25 @@ const runtimeTargetOptions = computed<RuntimeTargetOption[]>(() =>
 );
 
 const getPackageInfoForTarget = (
-  target: RuntimeTarget | undefined,
-): RuntimeTargetInfo["packageInfo"] | undefined => {
-  if (!target) {
-    return undefined;
-  }
-  return availableRuntimeTargets.value.find(
-    (targetInfo) => targetInfo.target === target,
-  )?.packageInfo;
+  target: RuntimeTarget,
+): RuntimeTargetInfo["packageInfo"] => {
+  const targetInfo = availableRuntimeTargets.value.find(
+    (t) => t.target === target,
+  );
+  assertNonNullable(targetInfo);
+  return targetInfo.packageInfo;
 };
 
-const selectedPackageInfo = computed(() =>
-  getPackageInfoForTarget(props.selectedRuntimeTarget),
-);
-
-const latestVersionLabel = computed(() =>
-  selectedPackageInfo.value
-    ? selectedPackageInfo.value.version
-    : "（読み込み中）",
-);
+const selectedPackageInfo = computed(() => {
+  assertNonNullable(props.onlineInfo);
+  return getPackageInfoForTarget(props.onlineInfo.selectedRuntimeTarget);
+});
 
 const engineStatus = computed<DisplayStatus>(() => {
   if (props.localInfo.installed.status === "notInstalled") {
     return "notInstalled";
   }
-  if (!selectedPackageInfo.value) {
+  if (!props.onlineInfo) {
     return "installed";
   }
   return semver.lt(
@@ -158,24 +160,24 @@ const statusLabel = computed(() => {
 });
 
 const progressTypeLabel = computed(() => {
-  if (!props.progressInfo) {
-    return "";
-  }
-  return props.progressInfo.type === "download"
-    ? "ダウンロード"
-    : "インストール";
+  const progressInfo = props.onlineInfo?.progressInfo;
+  assertNonNullable(progressInfo);
+  return progressInfo.type === "download" ? "ダウンロード" : "インストール";
 });
 
 const progressPercentage = computed(() => {
-  if (!props.progressInfo) {
-    return 0;
-  }
-  return Math.floor(props.progressInfo.progress);
+  const progressInfo = props.onlineInfo?.progressInfo;
+  assertNonNullable(progressInfo);
+  return Math.floor(progressInfo.progress);
 });
 
 const isDownloadingOrInstalling = computed(() => {
-  const progress = props.progressInfo?.progress;
-  return progress != undefined && progress < 100;
+  assertNonNullable(props.onlineInfo);
+  const progressInfo = props.onlineInfo.progressInfo;
+  if (!progressInfo) {
+    return false;
+  }
+  return progressInfo.progress < 100;
 });
 
 const actionLabel = computed(() => {
@@ -201,7 +203,7 @@ const actionLabelWithSize = computed(() => {
   }
 
   const size = selectedPackageInfo.value?.files.reduce(
-    (acc, file) => acc + (file.size ?? 0),
+    (acc, file) => acc + file.size,
     0,
   );
   if (size) {
@@ -218,7 +220,7 @@ const actionVariant = computed<"primary" | "default">(() =>
 );
 
 const actionDisabled = computed(() => {
-  if (!props.selectedRuntimeTarget) {
+  if (!props.onlineInfo?.selectedRuntimeTarget) {
     return true;
   }
   return isDownloadingOrInstalling.value;
