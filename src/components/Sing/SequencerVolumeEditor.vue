@@ -56,42 +56,8 @@ import { createLogger } from "@/helpers/log";
 const { info } = createLogger("SequencerPitch");
 
 const store = useStore();
-const { volumePreviewEdit, volumeStateMachineProcess } =
-  useVolumeEditorStateMachine({
-    state: {
-      get tpqn() {
-        return store.state.tpqn;
-      },
-      get tempos() {
-        return store.state.tempos;
-      },
-      get sequencerZoomX() {
-        return store.state.sequencerZoomX;
-      },
-      get sequencerZoomY() {
-        return store.state.sequencerZoomY;
-      },
-      get sequencerVolumeTool() {
-        return store.state.sequencerVolumeTool;
-      },
-      get parameterPanelEditTarget() {
-        return store.state.parameterPanelEditTarget;
-      },
-    },
-    getters: {
-      get SELECTED_TRACK_ID() {
-        return store.getters.SELECTED_TRACK_ID;
-      },
-      get PLAYHEAD_POSITION() {
-        return store.getters.PLAYHEAD_POSITION;
-      },
-    },
-    actions: {
-      COMMAND_SET_VOLUME_EDIT_DATA: store.actions.COMMAND_SET_VOLUME_EDIT_DATA,
-      COMMAND_ERASE_VOLUME_EDIT_DATA:
-        store.actions.COMMAND_ERASE_VOLUME_EDIT_DATA,
-    },
-  });
+const { volumePreviewEdit, stateMachineProcess } =
+  useVolumeEditorStateMachine(store);
 
 const tool = computed<VolumeEditTool>(() => store.state.sequencerVolumeTool);
 const selectedTrack = computed(() => store.getters.SELECTED_TRACK);
@@ -174,7 +140,7 @@ const dispatchVolumeEditorEvent = (
 ) => {
   const position = computeViewportPosition(mouseEvent);
 
-  volumeStateMachineProcess({
+  stateMachineProcess({
     type: "mouseEvent",
     targetArea,
     mouseEvent,
