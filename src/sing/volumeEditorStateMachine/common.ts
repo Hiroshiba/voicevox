@@ -53,7 +53,6 @@ export type VolumeEditorPartialStore = {
     | "sequencerZoomX"
     | "sequencerZoomY"
     | "sequencerVolumeTool"
-    | "parameterPanelEditTarget"
   >;
   readonly getters: Pick<
     Store["getters"],

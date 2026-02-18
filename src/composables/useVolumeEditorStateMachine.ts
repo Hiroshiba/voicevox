@@ -16,9 +16,7 @@ export const useVolumeEditorStateMachine = (
   store: VolumeEditorPartialStore,
 ) => {
   const refs = {
-    previewVolumeEdit: ref<VolumePreviewEdit | undefined>(
-      undefined,
-    ),
+    previewVolumeEdit: ref<VolumePreviewEdit | undefined>(undefined),
     previewMode: ref<VolumeEditorPreviewMode>("IDLE"),
     cursorState: ref<CursorState>("UNSET"),
   };
@@ -32,18 +30,10 @@ export const useVolumeEditorStateMachine = (
     zoomY: computed<number>(() => store.state.sequencerZoomY),
   };
 
-  // NOTE: parameterPanelEditTargetは今のところVOLUMEのみ。
-  // 音素編集などを追加するときはここを拡張する。
   const idleStateId = computed<VolumeEditorIdleStateId>(() =>
     store.state.sequencerVolumeTool === "ERASE"
       ? "eraseVolumeIdle"
       : "drawVolumeIdle",
-  );
-
-  // TODO:isVolumeEditTargetActiveはパラメータパネル内で編集対象がボリューム編集かどうかを判別するフラグ
-  // 最適なUIに応じて必要かどうかが異なるため、UIが固まった時点で変更・削除する可能性あり
-  const isVolumeEditTargetActive = computed(
-    () => store.state.parameterPanelEditTarget === "VOLUME",
   );
 
   const stateMachine = createVolumeEditorStateMachine(
@@ -55,24 +45,18 @@ export const useVolumeEditorStateMachine = (
     idleStateId.value,
   );
 
-  watch([idleStateId, isVolumeEditTargetActive], ([value, isVolumeActive]) => {
-    if (!isVolumeActive) {
-      return;
-    }
+  watch(idleStateId, (value) => {
     if (stateMachine.currentStateId !== value) {
       stateMachine.transitionTo(value, undefined);
     }
   });
 
   return {
-    volumeStateMachineProcess: (input: VolumeEditorInput) => {
-      if (!isVolumeEditTargetActive.value) {
-        return;
-      }
+    stateMachineProcess: (input: VolumeEditorInput) => {
       stateMachine.process(input);
     },
     volumePreviewEdit: computed(() => refs.previewVolumeEdit.value),
-    volumePreviewMode: computed(() => refs.previewMode.value),
-    volumeCursorState: computed(() => refs.cursorState.value),
+    previewMode: computed(() => refs.previewMode.value),
+    cursorState: computed(() => refs.cursorState.value),
   };
 };
