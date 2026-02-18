@@ -41,7 +41,7 @@ import {
   watch,
 } from "vue";
 import { QBtn } from "quasar";
-import { useParameterPanelStateMachine } from "@/composables/useParameterPanelStateMachine";
+import { useParameterPanelStateMachine } from "@/composables/useVolumeEditorStateMachine";
 import { useStore } from "@/store";
 import type { VolumeEditTool } from "@/store/type";
 import type {
