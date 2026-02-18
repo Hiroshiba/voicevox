@@ -47,7 +47,7 @@ import type { VolumeEditTool } from "@/store/type";
 import type {
   ParameterPanelInput,
   PositionOnParameterPanel,
-} from "@/sing/parameterPanelStateMachine/common";
+} from "@/sing/volumeEditorStateMachine/common";
 import { tickToSecond } from "@/sing/music";
 import { clamp } from "@/sing/utility";
 import { getTotalTicks } from "@/sing/rulerHelper"; // TODO: ルーラーから切り出して共通化する

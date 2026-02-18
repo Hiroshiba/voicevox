@@ -7,10 +7,10 @@ import type {
   ParameterPanelPreviewMode,
   ParameterPanelInput,
   ParameterPanelComputedRefs,
-} from "@/sing/parameterPanelStateMachine/common";
+} from "@/sing/volumeEditorStateMachine/common";
 import type { TrackId } from "@/type/preload";
 import type { Tempo } from "@/domain/project/type";
-import { createParameterPanelStateMachine } from "@/sing/parameterPanelStateMachine";
+import { createParameterPanelStateMachine } from "@/sing/volumeEditorStateMachine";
 
 export const useParameterPanelStateMachine = (
   store: ParameterPanelPartialStore,
