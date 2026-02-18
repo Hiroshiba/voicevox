@@ -7,10 +7,10 @@
 // とりあえず今はScoreSequencer側に合わせておくのがいいかもといったニュアンス
 // たとえば複数のパネルをスタックさせるようなUIにする場合は前提が変わるため、その際に別途判断する
 import type {
-  ParameterPanelStateDefinitions,
-  ParameterPanelInput,
-  ParameterPanelContext,
-  ParameterPanelIdleStateId,
+  VolumeEditorStateDefinitions,
+  VolumeEditorInput,
+  VolumeEditorContext,
+  VolumeEditorIdleStateId,
 } from "./common";
 import { DrawVolumeIdleState } from "./states/drawVolumeIdleState";
 import { EraseVolumeIdleState } from "./states/eraseVolumeIdleState";
@@ -18,14 +18,14 @@ import { DrawVolumeState } from "./states/drawVolumeState";
 import { EraseVolumeState } from "./states/eraseVolumeState";
 import { StateMachine } from "@/sing/stateMachine";
 
-export const createParameterPanelStateMachine = (
-  context: ParameterPanelContext,
-  initialState: ParameterPanelIdleStateId,
+export const createVolumeEditorStateMachine = (
+  context: VolumeEditorContext,
+  initialState: VolumeEditorIdleStateId,
 ) => {
   return new StateMachine<
-    ParameterPanelStateDefinitions,
-    ParameterPanelInput,
-    ParameterPanelContext
+    VolumeEditorStateDefinitions,
+    VolumeEditorInput,
+    VolumeEditorContext
   >(
     {
       drawVolumeIdle: () => new DrawVolumeIdleState(),

@@ -1,29 +1,29 @@
 import { computed, ref, watch } from "vue";
 import type { CursorState } from "@/sing/viewHelper";
 import type {
-  ParameterPanelVolumePreviewEdit,
-  ParameterPanelIdleStateId,
-  ParameterPanelPartialStore,
-  ParameterPanelPreviewMode,
-  ParameterPanelInput,
-  ParameterPanelComputedRefs,
+  VolumePreviewEdit,
+  VolumeEditorIdleStateId,
+  VolumeEditorPartialStore,
+  VolumeEditorPreviewMode,
+  VolumeEditorInput,
+  VolumeEditorComputedRefs,
 } from "@/sing/volumeEditorStateMachine/common";
 import type { TrackId } from "@/type/preload";
 import type { Tempo } from "@/domain/project/type";
-import { createParameterPanelStateMachine } from "@/sing/volumeEditorStateMachine";
+import { createVolumeEditorStateMachine } from "@/sing/volumeEditorStateMachine";
 
-export const useParameterPanelStateMachine = (
-  store: ParameterPanelPartialStore,
+export const useVolumeEditorStateMachine = (
+  store: VolumeEditorPartialStore,
 ) => {
   const refs = {
-    previewVolumeEdit: ref<ParameterPanelVolumePreviewEdit | undefined>(
+    previewVolumeEdit: ref<VolumePreviewEdit | undefined>(
       undefined,
     ),
-    previewMode: ref<ParameterPanelPreviewMode>("IDLE"),
+    previewMode: ref<VolumeEditorPreviewMode>("IDLE"),
     cursorState: ref<CursorState>("UNSET"),
   };
 
-  const computedRefs: ParameterPanelComputedRefs = {
+  const computedRefs: VolumeEditorComputedRefs = {
     selectedTrackId: computed<TrackId>(() => store.getters.SELECTED_TRACK_ID),
     playheadTicks: computed<number>(() => store.getters.PLAYHEAD_POSITION),
     tempos: computed<Tempo[]>(() => store.state.tempos),
@@ -34,7 +34,7 @@ export const useParameterPanelStateMachine = (
 
   // NOTE: parameterPanelEditTargetは今のところVOLUMEのみ。
   // 音素編集などを追加するときはここを拡張する。
-  const idleStateId = computed<ParameterPanelIdleStateId>(() =>
+  const idleStateId = computed<VolumeEditorIdleStateId>(() =>
     store.state.sequencerVolumeTool === "ERASE"
       ? "eraseVolumeIdle"
       : "drawVolumeIdle",
@@ -46,7 +46,7 @@ export const useParameterPanelStateMachine = (
     () => store.state.parameterPanelEditTarget === "VOLUME",
   );
 
-  const stateMachine = createParameterPanelStateMachine(
+  const stateMachine = createVolumeEditorStateMachine(
     {
       ...refs,
       ...computedRefs,
@@ -65,7 +65,7 @@ export const useParameterPanelStateMachine = (
   });
 
   return {
-    volumeStateMachineProcess: (input: ParameterPanelInput) => {
+    volumeStateMachineProcess: (input: VolumeEditorInput) => {
       if (!isVolumeEditTargetActive.value) {
         return;
       }

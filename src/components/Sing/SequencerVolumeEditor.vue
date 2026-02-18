@@ -41,12 +41,12 @@ import {
   watch,
 } from "vue";
 import { QBtn } from "quasar";
-import { useParameterPanelStateMachine } from "@/composables/useVolumeEditorStateMachine";
+import { useVolumeEditorStateMachine } from "@/composables/useVolumeEditorStateMachine";
 import { useStore } from "@/store";
 import type { VolumeEditTool } from "@/store/type";
 import type {
-  ParameterPanelInput,
-  PositionOnParameterPanel,
+  VolumeEditorInput,
+  PositionOnVolumeEditor,
 } from "@/sing/volumeEditorStateMachine/common";
 import { tickToSecond } from "@/sing/music";
 import { clamp } from "@/sing/utility";
@@ -57,7 +57,7 @@ const { info } = createLogger("SequencerPitch");
 
 const store = useStore();
 const { volumePreviewEdit, volumeStateMachineProcess } =
-  useParameterPanelStateMachine({
+  useVolumeEditorStateMachine({
     state: {
       get tpqn() {
         return store.state.tpqn;
@@ -122,7 +122,7 @@ const isDragging = ref(false);
 // TODO: マウスイベントのたびに処理を行うのは非効率...現状はデバッグ確認用
 const computeViewportPosition = (
   mouseEvent: MouseEvent,
-): PositionOnParameterPanel => {
+): PositionOnVolumeEditor => {
   const viewport = viewportElement.value;
   if (viewport == null) {
     throw new Error("volume editor viewport element is null.");
@@ -170,7 +170,7 @@ const computeViewportPosition = (
 
 const dispatchVolumeEditorEvent = (
   mouseEvent: MouseEvent,
-  targetArea: ParameterPanelInput["targetArea"],
+  targetArea: VolumeEditorInput["targetArea"],
 ) => {
   const position = computeViewportPosition(mouseEvent);
 
