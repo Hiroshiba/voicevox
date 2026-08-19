@@ -365,8 +365,7 @@ export const experimentalSettingSchema = z.object({
   enableInterrogativeUpspeak: z.boolean().default(false),
   enableMorphing: z.boolean().default(false),
   shouldKeepTuningOnTextChange: z.boolean().default(false),
-  enableVolumeEditInSongEditor: z.boolean().default(false),
-  enablePhonemeTimingEditInSongEditor: z.boolean().default(false),
+  showSongParameterPanel: z.boolean().default(false),
 });
 
 export type ExperimentalSettingType = z.infer<typeof experimentalSettingSchema>;

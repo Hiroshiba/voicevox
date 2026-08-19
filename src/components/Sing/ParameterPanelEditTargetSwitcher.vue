@@ -2,7 +2,6 @@
   <QBtnGroup flat class="edit-target-switcher">
     <!-- 音素タイミング -->
     <QBtn
-      v-if="enablePhonemeTimingEditInSongEditor"
       dense
       unelevated
       class="segment-switch"
@@ -22,7 +21,6 @@
 
     <!-- ボリューム -->
     <QBtn
-      v-if="enableVolumeEditInSongEditor"
       dense
       unelevated
       class="segment-switch"
@@ -47,8 +45,6 @@ import type { ParameterPanelEditTarget } from "@/store/type";
 
 defineProps<{
   editTarget: ParameterPanelEditTarget;
-  enableVolumeEditInSongEditor: boolean;
-  enablePhonemeTimingEditInSongEditor: boolean;
   changeEditTarget: (editTarget: ParameterPanelEditTarget) => void;
 }>();
 </script>

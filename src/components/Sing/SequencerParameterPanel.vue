@@ -2,22 +2,16 @@
   <div class="parameter-panel">
     <div class="tool-area">
       パラメータ
-      <ParameterPanelEditTargetSwitcher
-        :editTarget
-        :enableVolumeEditInSongEditor
-        :enablePhonemeTimingEditInSongEditor
-        :changeEditTarget
-      />
+      <!-- 仮のSwitcher -->
+      <ParameterPanelEditTargetSwitcher :editTarget :changeEditTarget />
     </div>
     <div class="edit-area">
       <SequencerPhonemeTimingEditor
-        v-if="
-          enablePhonemeTimingEditInSongEditor && editTarget === 'PHONEME_TIMING'
-        "
+        v-if="editTarget === 'PHONEME_TIMING'"
         :viewportInfo
       />
       <SequencerVolumeEditor
-        v-if="enableVolumeEditInSongEditor && editTarget === 'VOLUME'"
+        v-if="editTarget === 'VOLUME'"
         :viewportInfo
         @update:needsAutoScroll="
           (value) => emit('update:needsAutoScroll', value)
@@ -32,25 +26,29 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import SequencerVolumeEditor from "@/components/Sing/SequencerVolumeEditor/Container.vue";
+import { useStore } from "@/store";
 import type { ParameterPanelEditTarget } from "@/store/type";
 import ParameterPanelEditTargetSwitcher from "@/components/Sing/ParameterPanelEditTargetSwitcher.vue";
 import SequencerPhonemeTimingEditor from "@/components/Sing/SequencerPhonemeTimingEditor.vue";
 import type { ViewportInfo } from "@/sing/viewHelper";
 
-defineProps<{
-  viewportInfo: ViewportInfo;
-  editTarget: ParameterPanelEditTarget;
-  enableVolumeEditInSongEditor: boolean;
-  enablePhonemeTimingEditInSongEditor: boolean;
-  changeEditTarget: (editTarget: ParameterPanelEditTarget) => void;
-}>();
+defineProps<{ viewportInfo: ViewportInfo }>();
 
 const emit = defineEmits<{
   "update:needsAutoScroll": [value: boolean];
   panTimeline: [deltaX: number];
   zoomTimeline: [anchorX: number, deltaY: number];
 }>();
+
+const store = useStore();
+
+const editTarget = computed(() => store.state.parameterPanelEditTarget);
+
+const changeEditTarget = (editTarget: ParameterPanelEditTarget) => {
+  void store.actions.SET_PARAMETER_PANEL_EDIT_TARGET({ editTarget });
+};
 </script>
 
 <style scoped lang="scss">
