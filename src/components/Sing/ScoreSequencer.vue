@@ -219,6 +219,10 @@
       <SequencerParameterPanel
         v-if="isParameterPanelOpen"
         :viewportInfo
+        :editTarget="parameterPanelEditTarget"
+        :enableVolumeEditInSongEditor
+        :enablePhonemeTimingEditInSongEditor
+        :changeEditTarget="setParameterPanelEditTarget"
         @update:needsAutoScroll="
           (value) => (parameterPanelNeedsAutoScroll = value)
         "
@@ -293,6 +297,7 @@ import { isOnCommandOrCtrlKeyDown } from "@/store/utility";
 import { createLogger } from "@/helpers/log";
 import { useHotkeyManager } from "@/plugins/hotkeyPlugin";
 import { useSequencerStateMachine } from "@/composables/useSequencerStateMachine";
+import { useSequencerParameterPanel } from "@/composables/useSequencerParameterPanel";
 import type {
   PositionOnSequencer,
   ViewportInfo,
@@ -303,6 +308,13 @@ import { assertNonNullable } from "@/type/utility";
 const { warn } = createLogger("ScoreSequencer");
 const store = useStore();
 const state = store.state;
+const {
+  enableVolumeEditInSongEditor,
+  enablePhonemeTimingEditInSongEditor,
+  isParameterPanelOpen,
+  parameterPanelEditTarget,
+  setParameterPanelEditTarget,
+} = useSequencerParameterPanel(store);
 
 // トラック、TPQN、テンポ、拍子、ノーツ
 const tpqn = computed(() => state.tpqn);
@@ -457,9 +469,6 @@ const MAX_PARAMETER_PANEL_HEIGHT = 500;
 
 const splitterPosition = computed(() => store.state.splitterPosition);
 const parameterPanelHeight = ref(DEFAULT_PARAMETER_PANEL_HEIGHT);
-const isParameterPanelOpen = computed(
-  () => store.state.experimentalSetting.showParameterPanel,
-);
 
 watch(
   isParameterPanelOpen,

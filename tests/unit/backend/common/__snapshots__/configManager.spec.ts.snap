@@ -30,8 +30,9 @@ exports[`0.13.0からマイグレーションできる 1`] = `
   "experimentalSetting": {
     "enableInterrogativeUpspeak": false,
     "enableMorphing": false,
+    "enablePhonemeTimingEditInSongEditor": false,
+    "enableVolumeEditInSongEditor": false,
     "shouldKeepTuningOnTextChange": false,
-    "showParameterPanel": false,
   },
   "hotkeySettings": [
     {

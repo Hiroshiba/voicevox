@@ -474,12 +474,27 @@
                   "
                 />
                 <ToggleCell
-                  v-if="!isProduction"
-                  title="[開発時のみ機能] ソング：パラメーターパネルの表示"
-                  description="ONの場合、ソングエディタでパラメーターパネルが表示されます。"
-                  :modelValue="experimentalSetting.showParameterPanel"
+                  title="ソング：ボリューム編集"
+                  description="ONの場合、ソングエディタでボリュームの編集画面を有効にします。OFFの場合も、保存済みのボリューム編集結果は音声に適用されます。"
+                  :modelValue="experimentalSetting.enableVolumeEditInSongEditor"
                   @update:modelValue="
-                    changeExperimentalSetting('showParameterPanel', $event)
+                    changeExperimentalSetting(
+                      'enableVolumeEditInSongEditor',
+                      $event,
+                    )
+                  "
+                />
+                <ToggleCell
+                  title="ソング：音素タイミング編集"
+                  description="ONの場合、ソングエディタで音素タイミングの編集画面を有効にします。OFFの場合も、保存済みの音素タイミング編集結果は音声に適用されます。"
+                  :modelValue="
+                    experimentalSetting.enablePhonemeTimingEditInSongEditor
+                  "
+                  @update:modelValue="
+                    changeExperimentalSetting(
+                      'enablePhonemeTimingEditInSongEditor',
+                      $event,
+                    )
                   "
                 />
               </div>
