@@ -3,19 +3,26 @@ import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 import { z } from "zod";
 
-const afterPackEnvironmentSchema = z.object({
-  VOICEVOX_ENGINE_DIR: z.union([z.literal(""), z.string().min(1)]).optional(),
-});
+const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
+const voicevoxEngineDirSchema = z.union([z.literal(""), z.string().min(1)]);
 
-/** macOSアプリの署名前に必要なファイルを整える。 */
-export default function afterPack(context: AfterPackContext): void {
+/** VOICEVOX ENGINEの配置元を解決する。 */
+export function resolveVoicevoxEngineDir(value: string | undefined): string {
+  return (
+    voicevoxEngineDirSchema.optional().parse(value) ??
+    DEFAULT_VOICEVOX_ENGINE_DIR
+  );
+}
+
+/** macOSアプリの署名前処理を行う。 */
+export default function afterPack(
+  context: AfterPackContext,
+  shouldIncludeVoicevoxEngine: boolean,
+): void {
   if (context.electronPlatformName !== "darwin") {
     return;
   }
 
-  const environment = afterPackEnvironmentSchema.parse({
-    VOICEVOX_ENGINE_DIR: process.env.VOICEVOX_ENGINE_DIR,
-  });
   const appPath = path.join(context.appOutDir, "VOICEVOX.app");
   const contentsPath = path.join(appPath, "Contents");
   const resourcesPath = path.join(contentsPath, "Resources");
@@ -40,8 +47,7 @@ export default function afterPack(context: AfterPackContext): void {
     );
   }
 
-  const engineDir = environment.VOICEVOX_ENGINE_DIR;
-  if (engineDir != undefined && engineDir !== "") {
+  if (shouldIncludeVoicevoxEngine) {
     const engineRunPath = path.join(resourcesPath, "vv-engine", "run");
     if (!existsSync(engineRunPath)) {
       throw new Error(`VOICEVOX ENGINEのrunが見つかりません: ${engineRunPath}`);

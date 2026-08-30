@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
-import afterPack from "./afterPack";
+import afterPack, { resolveVoicevoxEngineDir } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -15,13 +15,10 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const VOICEVOX_ENGINE_DIR =
-  process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
-
-const configuredVoicevoxEngineDir = z
-  .union([z.literal(""), z.string().min(1)])
-  .optional()
-  .parse(process.env.VOICEVOX_ENGINE_DIR);
+const voicevoxEngineDir = resolveVoicevoxEngineDir(
+  process.env.VOICEVOX_ENGINE_DIR,
+);
+const shouldIncludeVoicevoxEngine = voicevoxEngineDir !== "";
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -55,13 +52,12 @@ const macosCodeSigningMode = z
 const isMacCodeSigning = isMac && macosCodeSigningMode === "true";
 
 const macosEngineSourceDir =
-  isMac &&
-  configuredVoicevoxEngineDir != undefined &&
-  configuredVoicevoxEngineDir !== ""
-    ? path.resolve(configuredVoicevoxEngineDir)
+  isMac && shouldIncludeVoicevoxEngine
+    ? path.resolve(rootDir, voicevoxEngineDir)
     : undefined;
+const isPrepackaged = process.argv.includes("--prepackaged");
 
-if (macosEngineSourceDir != undefined) {
+if (macosEngineSourceDir != undefined && !isPrepackaged) {
   if (!existsSync(macosEngineSourceDir)) {
     throw new Error(
       `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
@@ -138,7 +134,7 @@ const builderOptions: ElectronBuilderConfiguration = {
       ? []
       : [
           {
-            from: VOICEVOX_ENGINE_DIR,
+            from: voicevoxEngineDir,
             to: path.join(extraFilePrefix, "vv-engine"),
           },
         ]),
@@ -161,7 +157,8 @@ const builderOptions: ElectronBuilderConfiguration = {
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
-  afterPack,
+  afterPack: (context) =>
+    afterPack(context, isMac && shouldIncludeVoicevoxEngine),
   ...(isMacCodeSigning ? { forceCodeSigning: true } : {}),
   electronFuses: {
     runAsNode: false,

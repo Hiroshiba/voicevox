@@ -287,6 +287,9 @@ jobs:
           gtm_id=$(jq -er '.gtm_container_id' resource/editor/metas.json)
           echo "VITE_GTM_CONTAINER_ID=$gtm_id" >> $GITHUB_ENV
 
+      - name: Electronをコンパイル
+        run: pnpm run electron:build:compile
+
       - name: Define Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
@@ -307,7 +310,7 @@ jobs:
 
       # Build result will be exported to ${{ matrix.artifact_path }}
       - name: Build Electron
-        if: github.event.inputs.code_signing != 'true' || !startsWith(matrix.artifact_name, 'macos-')
+        if: github.event.inputs.code_signing != 'true' || !startsWith(matrix.os, 'macos-')
         env:
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
@@ -318,18 +321,18 @@ jobs:
           # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false
         run: |
-          if [[ "${{ startsWith(matrix.artifact_name, 'macos-') }}" == "true" ]]; then
+          if [[ "${{ startsWith(matrix.os, 'macos-') }}" == "true" ]]; then
             if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
-              VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build --dir
+              VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build:pack --dir
             else
-              VOICEVOX_ENGINE_DIR="" pnpm run electron:build --dir
+              VOICEVOX_ENGINE_DIR="" pnpm run electron:build:pack --dir
             fi
           else
-            pnpm run electron:build --dir
+            pnpm run electron:build:pack --dir
           fi
 
       - name: ElectronをmacOS正式署名付きでビルド
-        if: startsWith(matrix.artifact_name, 'macos-') && github.event.inputs.code_signing == 'true'
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         env:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           MACOS_CODE_SIGNING: "true"
@@ -376,15 +379,17 @@ jobs:
           }
           trap cleanup EXIT
 
-          umask 077
-          if ! printf '%s' "$APPLE_API_KEY_BASE64" | base64 -D > "$api_key_path"; then
+          if ! (
+            umask 077
+            printf '%s' "$APPLE_API_KEY_BASE64" | base64 -D > "$api_key_path"
+          ); then
             echo "App Store Connect APIキーの復元に失敗しました。" >&2
             exit 1
           fi
           chmod 600 "$api_key_path"
 
           unset APPLE_API_KEY_BASE64
-          APPLE_API_KEY="$api_key_path" pnpm run electron:build --dir
+          APPLE_API_KEY="$api_key_path" pnpm run electron:build:pack --dir
 
       - name: Reset Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
@@ -401,7 +406,7 @@ jobs:
           mv ${{ matrix.artifact_path }} ./prepackage
 
       - name: macOS正式署名を検証
-        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing == 'true'
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         run: |
           codesign --verify --deep --strict --verbose=2 prepackage/VOICEVOX.app
           xcrun stapler validate prepackage/VOICEVOX.app
@@ -420,7 +425,7 @@ jobs:
           fi
 
       - name: Ad hoc code signing
-        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing != 'true' # macOS
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing != 'true'
         run: codesign --force --deep -s - prepackage/VOICEVOX.app
 
       - name: Create Linux tar.gz (without nvidia)
