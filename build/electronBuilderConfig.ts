@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
+import afterPack from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -16,6 +17,11 @@ dotenv.config({ path: dotenvPath, quiet: true });
 
 const VOICEVOX_ENGINE_DIR =
   process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
+
+const configuredVoicevoxEngineDir = z
+  .union([z.literal(""), z.string().min(1)])
+  .optional()
+  .parse(process.env.VOICEVOX_ENGINE_DIR);
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -41,6 +47,28 @@ const WIN_SIGNING_HASH_ALGORITHMS = process.env.WIN_SIGNING_HASH_ALGORITHMS
 const isMac = process.platform === "darwin";
 
 const isArm64 = process.arch === "arm64";
+
+const macosEngineSourceDir =
+  isMac &&
+  configuredVoicevoxEngineDir != undefined &&
+  configuredVoicevoxEngineDir !== ""
+    ? path.resolve(configuredVoicevoxEngineDir)
+    : undefined;
+
+if (macosEngineSourceDir != undefined) {
+  if (!existsSync(macosEngineSourceDir)) {
+    throw new Error(
+      `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
+    );
+  }
+
+  const macosEngineRunPath = path.join(macosEngineSourceDir, "run");
+  if (!existsSync(macosEngineRunPath)) {
+    throw new Error(
+      `VOICEVOX ENGINEのrunが見つかりません: ${macosEngineRunPath}`,
+    );
+  }
+}
 
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // しかし、実行ファイルはVOICEVOX.app/Contents/MacOS/にあるため、extraFilesをVOICEVOX.app/Contents/ディレクトリにコピーするのは正しくない。
@@ -100,20 +128,34 @@ const builderOptions: ElectronBuilderConfiguration = {
       from: "build/README.txt",
       to: extraFilePrefix + "README.txt",
     },
-    {
-      from: VOICEVOX_ENGINE_DIR,
-      to: path.join(extraFilePrefix, "vv-engine"),
-    },
+    ...(isMac
+      ? []
+      : [
+          {
+            from: VOICEVOX_ENGINE_DIR,
+            to: path.join(extraFilePrefix, "vv-engine"),
+          },
+        ]),
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
       to: extraFilePrefix + sevenZipFile,
     },
   ],
+  extraResources:
+    macosEngineSourceDir != undefined
+      ? [
+          {
+            from: macosEngineSourceDir,
+            to: "vv-engine",
+          },
+        ]
+      : undefined,
   // electron-builder installer
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
+  afterPack,
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
