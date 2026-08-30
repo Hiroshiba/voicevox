@@ -48,6 +48,12 @@ const isMac = process.platform === "darwin";
 
 const isArm64 = process.arch === "arm64";
 
+const macosCodeSigningMode = z
+  .enum(["true", "false"])
+  .optional()
+  .parse(process.env.MACOS_CODE_SIGNING);
+const isMacCodeSigning = isMac && macosCodeSigningMode === "true";
+
 const macosEngineSourceDir =
   isMac &&
   configuredVoicevoxEngineDir != undefined &&
@@ -156,6 +162,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
   afterPack,
+  ...(isMacCodeSigning ? { forceCodeSigning: true } : {}),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -214,7 +221,8 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    identity: null, // ad-hoc署名をしない
+    ...(isMacCodeSigning ? {} : { identity: null }),
+    ...(isMacCodeSigning ? { notarize: true } : {}),
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",

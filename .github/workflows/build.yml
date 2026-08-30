@@ -307,11 +307,13 @@ jobs:
 
       # Build result will be exported to ${{ matrix.artifact_path }}
       - name: Build Electron
+        if: github.event.inputs.code_signing != 'true' || !startsWith(matrix.artifact_name, 'macos-')
         env:
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
+          MACOS_CODE_SIGNING: "false"
 
           # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false
@@ -325,6 +327,64 @@ jobs:
           else
             pnpm run electron:build --dir
           fi
+
+      - name: ElectronをmacOS正式署名付きでビルド
+        if: startsWith(matrix.artifact_name, 'macos-') && github.event.inputs.code_signing == 'true'
+        env:
+          MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
+          MACOS_CODE_SIGNING: "true"
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+          USE_HARD_LINKS: false
+        run: |
+          if [[ -z "$CSC_LINK" ]]; then
+            echo "APPLE_P12_BASE64が未定義または空文字です。" >&2
+            exit 1
+          fi
+          if [[ -z "$CSC_KEY_PASSWORD" ]]; then
+            echo "APPLE_P12_PASSWORDが未定義または空文字です。" >&2
+            exit 1
+          fi
+          if [[ -z "$APPLE_API_KEY_BASE64" ]]; then
+            echo "APPLE_API_KEY_BASE64が未定義または空文字です。" >&2
+            exit 1
+          fi
+          if [[ -z "$APPLE_API_KEY_ID" ]]; then
+            echo "APPLE_API_KEY_IDが未定義または空文字です。" >&2
+            exit 1
+          fi
+          if [[ -z "$APPLE_API_ISSUER" ]]; then
+            echo "APPLE_API_ISSUERが未定義または空文字です。" >&2
+            exit 1
+          fi
+
+          api_key_path="${RUNNER_TEMP}/voicevox-apple-api-key.p8"
+          cleanup() {
+            local status=$?
+            if ! rm -f "$api_key_path"; then
+              echo "App Store Connect APIキーの一時ファイルを削除できませんでした。" >&2
+              if [[ "$status" -eq 0 ]]; then
+                status=1
+              fi
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+
+          umask 077
+          if ! printf '%s' "$APPLE_API_KEY_BASE64" | base64 -D > "$api_key_path"; then
+            echo "App Store Connect APIキーの復元に失敗しました。" >&2
+            exit 1
+          fi
+          chmod 600 "$api_key_path"
+
+          unset APPLE_API_KEY_BASE64
+          APPLE_API_KEY="$api_key_path" pnpm run electron:build --dir
 
       - name: Reset Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
@@ -340,6 +400,12 @@ jobs:
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
+      - name: macOS正式署名を検証
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing == 'true'
+        run: |
+          codesign --verify --deep --strict --verbose=2 prepackage/VOICEVOX.app
+          xcrun stapler validate prepackage/VOICEVOX.app
+
       - name: Merge VOICEVOX ENGINE into prepackage/
         if: matrix.voicevox_engine_asset_name != null && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
         run: |
@@ -354,7 +420,7 @@ jobs:
           fi
 
       - name: Ad hoc code signing
-        if: endsWith(matrix.installer_artifact_name, '-dmg') # macOS
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing != 'true' # macOS
         run: codesign --force --deep -s - prepackage/VOICEVOX.app
 
       - name: Create Linux tar.gz (without nvidia)
