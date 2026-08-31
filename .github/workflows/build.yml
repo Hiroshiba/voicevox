@@ -381,7 +381,7 @@ jobs:
 
           if ! (
             umask 077
-            printf '%s' "$APPLE_API_KEY_BASE64" | base64 -D > "$api_key_path"
+            printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode > "$api_key_path"
           ); then
             echo "App Store Connect APIキーの復元に失敗しました。" >&2
             exit 1
@@ -401,11 +401,11 @@ jobs:
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
 
-      - name: Rename NoEngine Prepackage
+      - name: Rename Prepackage
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
-      - name: macOS正式署名を検証
+      - name: macOS正式署名と公証を検証
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         run: |
           codesign --verify --deep --strict --verbose=2 prepackage/VOICEVOX.app
