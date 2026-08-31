@@ -46,6 +46,14 @@ if [ ! -d "$ESIGNERCKA_INSTALL_DIR" ]; then
     rm SSL.COM-eSigner-CKA_1.0.6.zip eSigner_CKA_Installer.exe
 fi
 
+# 失敗時に証明書を破棄
+cleanup() {
+    powershell "& '$ESIGNERCKA_INSTALL_DIR\eSignerCKATool.exe' unload"
+    rm -f "$THUMBPRINT_PATH"
+    rm -f "$SIGNTOOL_PATH_PATH"
+}
+trap cleanup EXIT
+
 # 証明書を読み込む
 powershell "& '$ESIGNERCKA_INSTALL_DIR\eSignerCKATool.exe' load"
 
@@ -62,3 +70,6 @@ echo "$THUMBPRINT" >"$THUMBPRINT_PATH"
 # 対応しているsigntoolのパスを出力
 SIGNTOOL_PATH=$(ls "C:/Program Files (x86)/Windows Kits/"10/bin/*/x86/signtool.exe | sort -V | tail -n 1) # なぜかこれじゃないと動かない
 echo "$SIGNTOOL_PATH" >"$SIGNTOOL_PATH_PATH"
+
+# 証明書の破棄は後処理に任せる
+trap - EXIT
