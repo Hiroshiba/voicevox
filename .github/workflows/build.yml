@@ -48,43 +48,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux (x64)
-          - artifact_name: linux-prepackage
-            artifact_path: dist_electron/linux-unpacked
-            package_name: voicevox
-            compressed_artifact_name: voicevox-linux
-            installer_artifact_name: linux-appimage
-            linux_artifact_name: "VOICEVOX.${ext}"
-            linux_executable_name: voicevox
-            linux_appimage_7z_name: VOICEVOX.AppImage
-            os: ubuntu-22.04
-            env_file: .env.download-vvpp
-          # Linux (arm64)
-          - artifact_name: linux-arm64-prepackage
-            artifact_path: dist_electron/linux-arm64-unpacked
-            package_name: voicevox
-            compressed_artifact_name: voicevox-linux-arm64
-            installer_artifact_name: linux-arm64-appimage
-            linux_artifact_name: "VOICEVOX.${version}-arm64.${ext}"
-            linux_executable_name: voicevox
-            linux_appimage_7z_name: VOICEVOX-ARM64.AppImage
-            os: ubuntu-22.04-arm
-            env_file: .env.download-vvpp
-          # Windows
-          - artifact_name: windows-prepackage
-            artifact_path: dist_electron/win-unpacked
-            package_name: voicevox
-            compressed_artifact_name: voicevox-windows
-            installer_artifact_name: windows-nsis-web
-            nsis_web_artifact_name: "VOICEVOX.Web.Setup.${version}.${ext}"
-            os: windows-2022
-            env_file: .env.download-vvpp
           # macOS (x64)
           - artifact_name: macos-x64-prepackage
             artifact_path: dist_electron/mac
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-x64
             installer_artifact_name: macos-x64-dmg
+            nsis_web_artifact_name: ""
+            linux_artifact_name: ""
+            linux_executable_name: ""
+            linux_appimage_7z_name: ""
             macos_artifact_name: "VOICEVOX.${version}-x64.${ext}"
             os: macos-15-intel
             env_file: .env.download-vvpp
@@ -94,76 +67,13 @@ jobs:
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-arm64
             installer_artifact_name: macos-arm64-dmg
+            nsis_web_artifact_name: ""
+            linux_artifact_name: ""
+            linux_executable_name: ""
+            linux_appimage_7z_name: ""
             macos_artifact_name: "VOICEVOX.${version}-arm64.${ext}"
             os: macos-14
             env_file: .env.download-vvpp
-
-          # Linux NVIDIA GPU
-          - artifact_name: linux-nvidia-prepackage
-            artifact_path: dist_electron/linux-unpacked
-            voicevox_engine_asset_name: linux-nvidia
-            package_name: voicevox-cuda
-            compressed_artifact_name: voicevox-linux-nvidia
-            installer_artifact_name: linux-nvidia-appimage
-            linux_artifact_name: "VOICEVOX-CUDA.${ext}"
-            linux_executable_name: voicevox
-            linux_appimage_7z_name: VOICEVOX-CUDA.AppImage
-            os: ubuntu-22.04
-            env_file: .env.embed-engine.linux
-          # Linux CPU (x64)
-          - artifact_name: linux-cpu-x64-prepackage
-            artifact_path: dist_electron/linux-unpacked
-            voicevox_engine_asset_name: linux-cpu-x64
-            package_name: voicevox-cpu
-            compressed_artifact_name: voicevox-linux-cpu-x64
-            installer_artifact_name: linux-cpu-x64-appimage
-            linux_artifact_name: "VOICEVOX-CPU.${version}-x64.${ext}"
-            linux_executable_name: voicevox
-            linux_appimage_7z_name: VOICEVOX-CPU-X64.AppImage
-            os: ubuntu-22.04
-            env_file: .env.embed-engine.linux
-          # Linux CPU (arm64)
-          - artifact_name: linux-cpu-arm64-prepackage
-            artifact_path: dist_electron/linux-arm64-unpacked
-            voicevox_engine_asset_name: linux-cpu-arm64
-            package_name: voicevox-cpu
-            compressed_artifact_name: voicevox-linux-cpu-arm64
-            installer_artifact_name: linux-cpu-arm64-appimage
-            linux_artifact_name: "VOICEVOX-CPU.${version}-arm64.${ext}"
-            linux_executable_name: voicevox
-            linux_appimage_7z_name: VOICEVOX-CPU-ARM64.AppImage
-            os: ubuntu-22.04-arm
-            env_file: .env.embed-engine.linux
-          # Windows CUDA
-          - artifact_name: windows-nvidia-prepackage
-            artifact_path: dist_electron/win-unpacked
-            voicevox_engine_asset_name: windows-nvidia
-            package_name: voicevox-cuda
-            compressed_artifact_name: voicevox-windows-nvidia
-            installer_artifact_name: windows-nvidia-nsis-web
-            nsis_web_artifact_name: "VOICEVOX-CUDA.Web.Setup.${version}.${ext}"
-            os: windows-2022
-            env_file: .env.embed-engine.windows
-          # Windows CPU
-          - artifact_name: windows-cpu-prepackage
-            artifact_path: dist_electron/win-unpacked
-            voicevox_engine_asset_name: windows-cpu
-            package_name: voicevox-cpu
-            compressed_artifact_name: voicevox-windows-cpu
-            installer_artifact_name: windows-cpu-nsis-web
-            nsis_web_artifact_name: "VOICEVOX-CPU.Web.Setup.${version}.${ext}"
-            os: windows-2022
-            env_file: .env.embed-engine.windows
-          # Windows DirectML
-          - artifact_name: windows-directml-prepackage
-            artifact_path: dist_electron/win-unpacked
-            voicevox_engine_asset_name: windows-directml
-            package_name: voicevox-directml
-            compressed_artifact_name: voicevox-windows-directml
-            installer_artifact_name: windows-directml-nsis-web
-            nsis_web_artifact_name: "VOICEVOX-DirectML.Web.Setup.${version}.${ext}"
-            os: windows-2022
-            env_file: .env.embed-engine.windows
           # macOS CPU (x64)
           - artifact_name: macos-cpu-x64-prepackage
             artifact_path: dist_electron/mac
@@ -171,6 +81,10 @@ jobs:
             package_name: voicevox-cpu
             compressed_artifact_name: voicevox-macos-cpu-x64
             installer_artifact_name: macos-cpu-x64-dmg
+            nsis_web_artifact_name: ""
+            linux_artifact_name: ""
+            linux_executable_name: ""
+            linux_appimage_7z_name: ""
             macos_artifact_name: "VOICEVOX-CPU.${version}-x64.${ext}"
             os: macos-15-intel
             env_file: .env.embed-engine.macos
@@ -181,6 +95,10 @@ jobs:
             package_name: voicevox-cpu
             compressed_artifact_name: voicevox-macos-cpu-arm64
             installer_artifact_name: macos-cpu-arm64-dmg
+            nsis_web_artifact_name: ""
+            linux_artifact_name: ""
+            linux_executable_name: ""
+            linux_appimage_7z_name: ""
             macos_artifact_name: "VOICEVOX-CPU.${version}-arm64.${ext}"
             os: macos-14
             env_file: .env.embed-engine.macos
@@ -446,7 +364,7 @@ jobs:
             ${{ matrix.compressed_artifact_name }}-${{ env.VOICEVOX_EDITOR_VERSION }}.tar.gz
 
       - name: Upload Linux tar.gz (without nvidia) to Release Assets
-        if: startsWith(matrix.artifact_name, 'linux-') && !contains(matrix.artifact_name, 'nvidia') && github.event.inputs.version != ''
+        if: ${{ github.event_name == '__release_assets_disabled__' }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
@@ -467,6 +385,38 @@ jobs:
           7z a -tzip $name.zip prepackage/
           7z rn $name.zip prepackage/ VOICEVOX/
 
+      - name: macOS署名済みZIPの最終検証
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
+        run: |
+          set -euo pipefail
+
+          archive="${{ matrix.compressed_artifact_name }}-${{ env.VOICEVOX_EDITOR_VERSION }}.zip"
+          temporary_directory="$(mktemp -d)"
+          cleanup() {
+            exit_status=$?
+            trap - EXIT
+            cleanup_status=0
+            if ! rm -rf "$temporary_directory"; then
+              echo "ZIP検証用一時ディレクトリの削除に失敗しました: $temporary_directory" >&2
+              cleanup_status=1
+            fi
+            if [[ "$cleanup_status" -ne 0 && "$exit_status" -eq 0 ]]; then
+              exit_status=$cleanup_status
+            fi
+            exit "$exit_status"
+          }
+          trap cleanup EXIT
+
+          7z x "$archive" "-o$temporary_directory"
+          app_path="$temporary_directory/VOICEVOX/VOICEVOX.app"
+          if [[ ! -d "$app_path" ]]; then
+            echo "ZIP内にVOICEVOX/VOICEVOX.appが見つかりません。" >&2
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+
       - name: Upload Windows & Mac zip (without nvidia) to Artifacts
         if: (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'macos-')) && !contains(matrix.artifact_name, 'nvidia') && github.event.inputs.upload_artifact == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -476,7 +426,7 @@ jobs:
             ${{ matrix.compressed_artifact_name }}-${{ env.VOICEVOX_EDITOR_VERSION }}.zip
 
       - name: Upload Windows & Mac zip (without nvidia) to Release Assets
-        if: (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'macos-')) && !contains(matrix.artifact_name, 'nvidia') && github.event.inputs.version != ''
+        if: ${{ github.event_name == '__release_assets_disabled__' }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
@@ -524,6 +474,63 @@ jobs:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
         run: |
           pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
+
+      - name: macOS署名済みDMGの最終検証
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
+        run: |
+          set -euo pipefail
+
+          shopt -s nullglob
+          dmg_files=(dist_electron/*.dmg)
+          shopt -u nullglob
+          if [[ "${#dmg_files[@]}" -ne 1 ]]; then
+            echo "dist_electron/*.dmgは1つだけ必要です。検出数: ${#dmg_files[@]}" >&2
+            exit 1
+          fi
+
+          dmg_path="${dmg_files[0]}"
+          temporary_directory="$(mktemp -d)"
+          mount_point="$temporary_directory/mount"
+          attached=false
+          cleanup() {
+            exit_status=$?
+            trap - EXIT
+            cleanup_status=0
+            if [[ "$attached" == true ]]; then
+              if ! hdiutil detach "$mount_point"; then
+                echo "DMGのdetachに失敗しました: $mount_point" >&2
+                cleanup_status=1
+              fi
+            fi
+            for temporary_path in "$temporary_directory" "$mount_point"; do
+              if ! rm -rf "$temporary_path"; then
+                echo "一時ディレクトリの削除に失敗しました: $temporary_path" >&2
+                cleanup_status=1
+              fi
+            done
+            if [[ "$cleanup_status" -ne 0 && "$exit_status" -eq 0 ]]; then
+              exit_status=$cleanup_status
+            fi
+            exit "$exit_status"
+          }
+          trap cleanup EXIT
+
+          if ! mkdir "$mount_point"; then
+            echo "DMG用一時mount pointの作成に失敗しました: $mount_point" >&2
+            exit 1
+          fi
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "$dmg_path"
+          attached=true
+          app_path="$mount_point/VOICEVOX.app"
+          if [[ ! -d "$app_path" ]]; then
+            echo "DMG内にVOICEVOX.appが見つかりません。" >&2
+            exit 1
+          fi
+          copied_app_path="$temporary_directory/VOICEVOX.app"
+          ditto "$app_path" "$copied_app_path"
+          codesign --verify --deep --strict --verbose=2 "$copied_app_path"
+          xcrun stapler validate "$copied_app_path"
+          spctl --assess --type execute --verbose=4 "$copied_app_path"
 
       - name: Reset Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
@@ -573,7 +580,7 @@ jobs:
             VOICEVOX.${{ matrix.installer_artifact_name }}.${{ env.VOICEVOX_EDITOR_VERSION }}.sh
 
       - name: Upload Linux AppImage split and installer to Release Assets
-        if: endsWith(matrix.installer_artifact_name, '-appimage') && github.event.inputs.version != ''
+        if: ${{ github.event_name == '__release_assets_disabled__' }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
@@ -592,7 +599,7 @@ jobs:
             dist_electron/*.dmg
 
       - name: Upload macOS dmg to Release Assets
-        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.version != ''
+        if: ${{ github.event_name == '__release_assets_disabled__' }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
@@ -611,7 +618,7 @@ jobs:
             dist_electron/nsis-web/*.exe
 
       - name: Upload Windows NSIS Web to Release Assets
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && github.event.inputs.version != ''
+        if: ${{ github.event_name == '__release_assets_disabled__' }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
