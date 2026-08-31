@@ -295,10 +295,20 @@ jobs:
       - name: Compile Electron app
         run: pnpm run electron:build:compile
 
+      - name: Setup Windows Code Signing
+        id: setup-windows-code-signing-prepackage
+        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
+        run: bash tools/codesign_setup.bash
+        env:
+          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
+          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
+          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
+          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
+          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
+
       - name: Define Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
-          bash tools/codesign_setup.bash
           THUMBPRINT="$(<"$THUMBPRINT_PATH")"
           SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
           echo "::add-mask::$THUMBPRINT"
@@ -307,9 +317,6 @@ jobs:
           echo 'WIN_SIGNING_HASH_ALGORITHMS=["sha256"]' >> $GITHUB_ENV
           echo "SIGNTOOL_PATH=$SIGNTOOL_PATH" >> $GITHUB_ENV
         env:
-          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
-          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
-          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
@@ -397,7 +404,7 @@ jobs:
           APPLE_API_KEY="$api_key_path" pnpm run electron:build:pack --dir
 
       - name: Reset Code Signing Envs
-        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
+        if: always() && steps.setup-windows-code-signing-prepackage.outcome == 'success'
         run: |
           bash tools/codesign_cleanup.bash
           echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
@@ -496,10 +503,20 @@ jobs:
         run: |
           rm ${{ matrix.compressed_artifact_name }}-${{ env.VOICEVOX_EDITOR_VERSION }}.zip
 
+      - name: Setup Windows Code Signing
+        id: setup-windows-code-signing-installer
+        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
+        run: bash tools/codesign_setup.bash
+        env:
+          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
+          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
+          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
+          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
+          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
+
       - name: Define Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
-          bash tools/codesign_setup.bash
           THUMBPRINT="$(<"$THUMBPRINT_PATH")"
           SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
           echo "::add-mask::$THUMBPRINT"
@@ -508,9 +525,6 @@ jobs:
           echo 'WIN_SIGNING_HASH_ALGORITHMS=["sha256"]' >> $GITHUB_ENV
           echo "SIGNTOOL_PATH=$SIGNTOOL_PATH" >> $GITHUB_ENV
         env:
-          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
-          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
-          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
@@ -532,7 +546,7 @@ jobs:
           pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
 
       - name: Reset Code Signing Envs
-        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
+        if: always() && steps.setup-windows-code-signing-installer.outcome == 'success'
         run: |
           bash tools/codesign_cleanup.bash
           echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
