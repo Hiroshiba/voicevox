@@ -4,7 +4,18 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
-import afterPack, { resolveVoicevoxEngineDir } from "./afterPack";
+import afterPack from "./afterPack";
+
+const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
+const voicevoxEngineDirSchema = z.union([z.literal(""), z.string().min(1)]);
+
+/** VOICEVOX ENGINEの配置元を解決する。 */
+function resolveVoicevoxEngineDir(value: string | undefined): string {
+  return (
+    voicevoxEngineDirSchema.optional().parse(value) ??
+    DEFAULT_VOICEVOX_ENGINE_DIR
+  );
+}
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -55,22 +66,6 @@ const macosEngineSourceDir =
   isMac && shouldIncludeVoicevoxEngine
     ? path.resolve(rootDir, voicevoxEngineDir)
     : undefined;
-const isPrepackaged = process.argv.includes("--prepackaged");
-
-if (macosEngineSourceDir != undefined && !isPrepackaged) {
-  if (!existsSync(macosEngineSourceDir)) {
-    throw new Error(
-      `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
-    );
-  }
-
-  const macosEngineRunPath = path.join(macosEngineSourceDir, "run");
-  if (!existsSync(macosEngineRunPath)) {
-    throw new Error(
-      `VOICEVOX ENGINEのrunが見つかりません: ${macosEngineRunPath}`,
-    );
-  }
-}
 
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
@@ -93,6 +88,27 @@ const builderOptions: ElectronBuilderConfiguration = {
       rmSync(path.join(rootDir, "dist_electron"), {
         recursive: true,
       });
+    }
+  },
+  beforePack: (context) => {
+    if (
+      context.electronPlatformName !== "darwin" ||
+      macosEngineSourceDir == undefined
+    ) {
+      return;
+    }
+
+    if (!existsSync(macosEngineSourceDir)) {
+      throw new Error(
+        `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
+      );
+    }
+
+    const macosEngineRunPath = path.join(macosEngineSourceDir, "run");
+    if (!existsSync(macosEngineRunPath)) {
+      throw new Error(
+        `VOICEVOX ENGINEのrunが見つかりません: ${macosEngineRunPath}`,
+      );
     }
   },
   directories: {

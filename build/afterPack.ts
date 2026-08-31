@@ -1,20 +1,8 @@
 import path from "node:path";
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
-import { z } from "zod";
 
-const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
-const voicevoxEngineDirSchema = z.union([z.literal(""), z.string().min(1)]);
-
-/** VOICEVOX ENGINEの配置元を解決する。 */
-export function resolveVoicevoxEngineDir(value: string | undefined): string {
-  return (
-    voicevoxEngineDirSchema.optional().parse(value) ??
-    DEFAULT_VOICEVOX_ENGINE_DIR
-  );
-}
-
-/** macOSアプリの署名前処理を行う。 */
+/** macOSアプリのパッケージング後処理を行う。 */
 export default function afterPack(
   context: AfterPackContext,
   shouldIncludeVoicevoxEngine: boolean,
@@ -23,14 +11,16 @@ export default function afterPack(
     return;
   }
 
-  const appPath = path.join(context.appOutDir, "VOICEVOX.app");
+  const productFilename = context.packager.appInfo.productFilename;
+  const appPath = path.join(context.appOutDir, `${productFilename}.app`);
   const contentsPath = path.join(appPath, "Contents");
   const resourcesPath = path.join(contentsPath, "Resources");
+  const helperPrefix = `${context.packager.appInfo.sanitizedProductName} Helper`;
   const helperNames = [
-    "VOICEVOX Helper (GPU)",
-    "VOICEVOX Helper (Plugin)",
-    "VOICEVOX Helper (Renderer)",
-    "VOICEVOX Helper",
+    `${helperPrefix} (GPU)`,
+    `${helperPrefix} (Plugin)`,
+    `${helperPrefix} (Renderer)`,
+    helperPrefix,
   ];
 
   for (const helperName of helperNames) {
@@ -55,6 +45,7 @@ export default function afterPack(
     chmodSync(engineRunPath, 0o755);
   }
 
+  // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
   mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
   mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
 }
