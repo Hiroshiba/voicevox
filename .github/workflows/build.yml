@@ -51,6 +51,7 @@ jobs:
           # Linux (x64)
           - artifact_name: linux-prepackage
             artifact_path: dist_electron/linux-unpacked
+            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-linux
             installer_artifact_name: linux-appimage
@@ -62,6 +63,7 @@ jobs:
           # Linux (arm64)
           - artifact_name: linux-arm64-prepackage
             artifact_path: dist_electron/linux-arm64-unpacked
+            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-linux-arm64
             installer_artifact_name: linux-arm64-appimage
@@ -73,6 +75,7 @@ jobs:
           # Windows
           - artifact_name: windows-prepackage
             artifact_path: dist_electron/win-unpacked
+            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-windows
             installer_artifact_name: windows-nsis-web
@@ -82,6 +85,7 @@ jobs:
           # macOS (x64)
           - artifact_name: macos-x64-prepackage
             artifact_path: dist_electron/mac
+            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-x64
             installer_artifact_name: macos-x64-dmg
@@ -91,6 +95,7 @@ jobs:
           # macOS (arm64)
           - artifact_name: macos-arm64-prepackage
             artifact_path: dist_electron/mac-arm64
+            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-arm64
             installer_artifact_name: macos-arm64-dmg
@@ -251,7 +256,7 @@ jobs:
           path: resource
 
       - name: Download VOICEVOX ENGINE
-        if: matrix.voicevox_engine_asset_name != null
+        if: matrix.voicevox_engine_asset_name != 'none'
         id: download-engine
         uses: ./.github/actions/download-engine
         with:
@@ -322,10 +327,10 @@ jobs:
           USE_HARD_LINKS: false
         run: |
           if [[ "${{ startsWith(matrix.os, 'macos-') }}" == "true" ]]; then
-            if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
+            if [[ "${{ matrix.voicevox_engine_asset_name != 'none' }}" == "true" ]]; then
               VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build:pack --dir
             else
-              VOICEVOX_ENGINE_DIR="" pnpm run electron:build:pack --dir
+              VOICEVOX_ENGINE_DIR="none" pnpm run electron:build:pack --dir
             fi
           else
             pnpm run electron:build:pack --dir
@@ -336,7 +341,7 @@ jobs:
         env:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           MACOS_CODE_SIGNING: "true"
-          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != 'none' && format('{0}/voicevox_engine', github.workspace) || 'none' }}
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
@@ -413,7 +418,7 @@ jobs:
           xcrun stapler validate prepackage/VOICEVOX.app
 
       - name: Merge VOICEVOX ENGINE into prepackage/
-        if: matrix.voicevox_engine_asset_name != null && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
+        if: matrix.voicevox_engine_asset_name != 'none' && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
         run: |
           mv voicevox_engine/ prepackage/vv-engine/
 

@@ -5,7 +5,7 @@ import type { AfterPackContext } from "electron-builder";
 /** macOSアプリのパッケージング後処理を行う。 */
 export default function afterPack(
   context: AfterPackContext,
-  shouldIncludeVoicevoxEngine: boolean,
+  voicevoxEngineSourceKind: "include" | "exclude",
 ): void {
   if (context.electronPlatformName !== "darwin") {
     return;
@@ -37,7 +37,7 @@ export default function afterPack(
     );
   }
 
-  if (shouldIncludeVoicevoxEngine) {
+  if (voicevoxEngineSourceKind === "include") {
     const engineRunPath = path.join(resourcesPath, "vv-engine", "run");
     if (!existsSync(engineRunPath)) {
       throw new Error(`VOICEVOX ENGINEのrunが見つかりません: ${engineRunPath}`);

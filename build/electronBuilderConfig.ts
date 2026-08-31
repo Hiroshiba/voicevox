@@ -7,14 +7,36 @@ import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 
 const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
-const voicevoxEngineDirSchema = z.union([z.literal(""), z.string().min(1)]);
+const voicevoxEngineSettingSchema = z.union([
+  z.literal("none"),
+  z.string().min(1),
+]);
+const voicevoxEngineSourceSchema = z.discriminatedUnion("kind", [
+  z
+    .object({ kind: z.literal("include"), directory: z.string().min(1) })
+    .strict(),
+  z.object({ kind: z.literal("exclude") }).strict(),
+]);
+type VoicevoxEngineSource = z.infer<typeof voicevoxEngineSourceSchema>;
 
-/** VOICEVOX ENGINEの配置元を解決する。 */
-function resolveVoicevoxEngineDir(value: string | undefined): string {
-  return (
-    voicevoxEngineDirSchema.optional().parse(value) ??
-    DEFAULT_VOICEVOX_ENGINE_DIR
-  );
+/** VOICEVOX ENGINEの配置設定を解決する。 */
+function resolveVoicevoxEngineSource(
+  value: string | undefined,
+): VoicevoxEngineSource {
+  const parsedValue = voicevoxEngineSettingSchema.optional().parse(value);
+  if (parsedValue == undefined) {
+    return voicevoxEngineSourceSchema.parse({
+      kind: "include",
+      directory: DEFAULT_VOICEVOX_ENGINE_DIR,
+    });
+  }
+  if (parsedValue === "none") {
+    return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
+  }
+  return voicevoxEngineSourceSchema.parse({
+    kind: "include",
+    directory: parsedValue,
+  });
 }
 
 const rootDir = path.join(import.meta.dirname, "..");
@@ -26,10 +48,9 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineDir = resolveVoicevoxEngineDir(
+const voicevoxEngineSource = resolveVoicevoxEngineSource(
   process.env.VOICEVOX_ENGINE_DIR,
 );
-const shouldIncludeVoicevoxEngine = voicevoxEngineDir !== "";
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -62,11 +83,6 @@ const macosCodeSigningMode = z
   .parse(process.env.MACOS_CODE_SIGNING);
 const isMacCodeSigning = isMac && macosCodeSigningMode === "true";
 
-const macosEngineSourceDir =
-  isMac && shouldIncludeVoicevoxEngine
-    ? path.resolve(rootDir, voicevoxEngineDir)
-    : undefined;
-
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
 const extraFilePrefix = isMac ? "MacOS/" : "";
@@ -93,11 +109,15 @@ const builderOptions: ElectronBuilderConfiguration = {
   beforePack: (context) => {
     if (
       context.electronPlatformName !== "darwin" ||
-      macosEngineSourceDir == undefined
+      voicevoxEngineSource.kind !== "include"
     ) {
       return;
     }
 
+    const macosEngineSourceDir = path.resolve(
+      rootDir,
+      voicevoxEngineSource.directory,
+    );
     if (!existsSync(macosEngineSourceDir)) {
       throw new Error(
         `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
@@ -144,35 +164,35 @@ const builderOptions: ElectronBuilderConfiguration = {
       from: "build/README.txt",
       to: isMac ? "Resources/README.txt" : "README.txt",
     },
-    ...(isMac
-      ? []
-      : [
+    ...(!isMac && voicevoxEngineSource.kind === "include"
+      ? [
           {
-            from: voicevoxEngineDir,
+            from: voicevoxEngineSource.directory,
             to: path.join(extraFilePrefix, "vv-engine"),
           },
-        ]),
+        ]
+      : []),
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
       to: extraFilePrefix + sevenZipFile,
     },
   ],
-  extraResources:
-    macosEngineSourceDir != undefined
-      ? [
+  ...(isMac && voicevoxEngineSource.kind === "include"
+    ? {
+        extraResources: [
           {
-            from: macosEngineSourceDir,
+            from: path.resolve(rootDir, voicevoxEngineSource.directory),
             to: "vv-engine",
           },
-        ]
-      : undefined,
+        ],
+      }
+    : {}),
   // electron-builder installer
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
-  afterPack: (context) =>
-    afterPack(context, isMac && shouldIncludeVoicevoxEngine),
+  afterPack: (context) => afterPack(context, voicevoxEngineSource.kind),
   ...(isMacCodeSigning ? { forceCodeSigning: true } : {}),
   electronFuses: {
     runAsNode: false,
