@@ -292,7 +292,7 @@ jobs:
           gtm_id=$(jq -er '.gtm_container_id' resource/editor/metas.json)
           echo "VITE_GTM_CONTAINER_ID=$gtm_id" >> $GITHUB_ENV
 
-      - name: Electronをコンパイル
+      - name: Compile Electron app
         run: pnpm run electron:build:compile
 
       - name: Define Code Signing Envs
@@ -336,7 +336,7 @@ jobs:
             pnpm run electron:build:pack --dir
           fi
 
-      - name: ElectronをmacOS正式署名付きでビルド
+      - name: Build, sign, and notarize macOS app
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         env:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
@@ -411,7 +411,7 @@ jobs:
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
-      - name: macOS正式署名と公証を検証
+      - name: Verify macOS signature and notarization
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         run: |
           codesign --verify --deep --strict --verbose=2 prepackage/VOICEVOX.app
