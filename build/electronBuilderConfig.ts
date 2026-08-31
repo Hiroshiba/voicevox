@@ -73,9 +73,7 @@ if (macosEngineSourceDir != undefined && !isPrepackaged) {
 }
 
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
-// しかし、実行ファイルはVOICEVOX.app/Contents/MacOS/にあるため、extraFilesをVOICEVOX.app/Contents/ディレクトリにコピーするのは正しくない。
-// VOICEVOX.app/Contents/MacOS/ディレクトリにコピーされるように修正する。
-// cf: https://k-hyoda.hatenablog.com/entry/2021/10/23/000349#%E8%BF%BD%E5%8A%A0%E5%B1%95%E9%96%8B%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E5%85%88%E3%81%AE%E8%A8%AD%E5%AE%9A
+// macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
 const extraFilePrefix = isMac ? "MacOS/" : "";
 
 const sevenZipFile = readdirSync(path.join(rootDir, "vendored", "7z")).find(
@@ -128,7 +126,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   extraFiles: [
     {
       from: "build/README.txt",
-      to: extraFilePrefix + "README.txt",
+      to: isMac ? "Resources/README.txt" : "README.txt",
     },
     ...(isMac
       ? []
