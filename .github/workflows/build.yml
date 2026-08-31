@@ -294,8 +294,8 @@ jobs:
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
           bash tools/codesign_setup.bash
-          THUMBPRINT="$(head -n 1 $THUMBPRINT_PATH)"
-          SIGNTOOL_PATH="$(head -n 1 $SIGNTOOL_PATH_PATH)"
+          THUMBPRINT="$(<"$THUMBPRINT_PATH")"
+          SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
           echo "::add-mask::$THUMBPRINT"
 
           echo "WIN_CERTIFICATE_SHA1=$THUMBPRINT" >> $GITHUB_ENV
@@ -400,6 +400,7 @@ jobs:
           echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
+          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
       - name: Rename Prepackage
         run: |
@@ -494,8 +495,8 @@ jobs:
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
           bash tools/codesign_setup.bash
-          THUMBPRINT="$(head -n 1 $THUMBPRINT_PATH)"
-          SIGNTOOL_PATH="$(head -n 1 $SIGNTOOL_PATH_PATH)"
+          THUMBPRINT="$(<"$THUMBPRINT_PATH")"
+          SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
           echo "::add-mask::$THUMBPRINT"
 
           echo "WIN_CERTIFICATE_SHA1=$THUMBPRINT" >> $GITHUB_ENV
@@ -534,6 +535,7 @@ jobs:
           echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
+          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
       - name: Create Linux AppImage split
         if: endsWith(matrix.installer_artifact_name, '-appimage')
