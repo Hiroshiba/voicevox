@@ -14,6 +14,11 @@ import { createIpcSendProxy, type IpcSendProxy } from "../../ipc";
 import { getWelcomeIpcMainHandleManager } from "../welcomeIpcMainHandleManager";
 import { themes } from "@/domain/theme";
 import type { WelcomeIpcSOData } from "@/welcome/backend/ipcType";
+import type { WelcomeWindowLaunchContext } from "@/domain/welcome";
+import type { EngineId } from "@/type/preload";
+import { createLogger } from "@/helpers/log";
+
+const log = createLogger("WelcomeWindowManager");
 
 type WindowManagerOption = {
   staticDir: string;
@@ -21,12 +26,22 @@ type WindowManagerOption = {
   isTest: boolean;
 };
 
+type EngineInstallationState =
+  | { type: "idle" }
+  | { type: "installing"; engineIds: Set<EngineId> };
+
+type LaunchContextState =
+  | { type: "uninitialized" }
+  | { type: "initialized"; context: WelcomeWindowLaunchContext };
+
 class WelcomeWindowManager {
   private _win: BrowserWindow | undefined;
   private _ipc: IpcSendProxy<WelcomeIpcSOData> | undefined;
   private staticDir: string;
   private isDevelopment: boolean;
   private isTest: boolean;
+  private launchContextState: LaunchContextState = { type: "uninitialized" };
+  private engineInstallationState: EngineInstallationState = { type: "idle" };
 
   constructor(payload: WindowManagerOption) {
     this.staticDir = payload.staticDir;
@@ -65,7 +80,10 @@ class WelcomeWindowManager {
     return this._ipc;
   }
 
-  public async createWindow() {
+  /** Welcomeウィンドウを指定コンテキストで作成する。 */
+  public async createWindow(
+    context: WelcomeWindowLaunchContext,
+  ): Promise<void> {
     if (this.win != undefined) {
       throw new Error("Window has already been created");
     }
@@ -103,6 +121,10 @@ class WelcomeWindowManager {
       ipc.DETECT_LEAVE_FULLSCREEN();
     });
     win.on("close", (event) => {
+      if (this.isEngineInstallationInProgress()) {
+        event.preventDefault();
+        return;
+      }
       const appStateController = getAppStateController();
       void appStateController.onQuitRequest({
         preventQuit: () => event.preventDefault(),
@@ -111,8 +133,10 @@ class WelcomeWindowManager {
     win.on("closed", () => {
       this._win = undefined;
       this._ipc = undefined;
+      this.launchContextState = { type: "uninitialized" };
     });
     this._win = win;
+    this.launchContextState = { type: "initialized", context };
 
     await this.load();
 
@@ -197,8 +221,72 @@ class WelcomeWindowManager {
     win.webContents.setZoomFactor(1);
   }
 
-  public destroyWindow() {
+  public destroyWindow(): void {
+    if (this.isEngineInstallationInProgress()) {
+      throw new Error(
+        "エンジンのインストール中はWelcomeウィンドウを閉じられません。",
+      );
+    }
     this.getWindow().destroy();
+  }
+
+  /** エンジンのインストールを開始状態にする。 */
+  public beginEngineInstallation(engineId: EngineId): void {
+    const state = this.engineInstallationState;
+    if (state.type === "idle") {
+      this.engineInstallationState = {
+        type: "installing",
+        engineIds: new Set([engineId]),
+      };
+      return;
+    }
+    if (state.engineIds.has(engineId)) {
+      throw new Error(
+        `エンジンのインストールがすでに実行中です。エンジンID: ${engineId}`,
+      );
+    }
+    const engineIds = new Set(state.engineIds);
+    engineIds.add(engineId);
+    this.engineInstallationState = { type: "installing", engineIds };
+  }
+
+  /** エンジンのインストールを完了状態にする。 */
+  public endEngineInstallation(engineId: EngineId): void {
+    const state = this.engineInstallationState;
+    if (state.type === "idle" || !state.engineIds.has(engineId)) {
+      throw new Error(
+        `エンジンのインストール状態が不正です。エンジンID: ${engineId}`,
+      );
+    }
+    const engineIds = new Set(state.engineIds);
+    engineIds.delete(engineId);
+    this.engineInstallationState =
+      engineIds.size === 0
+        ? { type: "idle" }
+        : { type: "installing", engineIds };
+  }
+
+  /** エンジンのインストール中かどうかを取得する。 */
+  public isEngineInstallationInProgress(): boolean {
+    return this.engineInstallationState.type === "installing";
+  }
+
+  /** エンジンの進捗をWelcomeウィンドウへ送信する。 */
+  public sendEngineDownloadProgress(
+    obj: WelcomeIpcSOData["UPDATE_ENGINE_DOWNLOAD_PROGRESS"]["args"][0],
+  ): void {
+    const win = this._win;
+    if (
+      win == undefined ||
+      win.isDestroyed() ||
+      win.webContents.isDestroyed()
+    ) {
+      log.warn(
+        "破棄済みのWelcomeウィンドウにはエンジンのダウンロード進捗を送信できません。",
+      );
+      return;
+    }
+    this.ipc.UPDATE_ENGINE_DOWNLOAD_PROGRESS(obj);
   }
 
   public show() {
@@ -211,6 +299,16 @@ class WelcomeWindowManager {
 
   public isMaximized() {
     return this.getWindow().isMaximized();
+  }
+
+  /** Welcomeウィンドウの起動コンテキストを取得する。 */
+  public getLaunchContext(): WelcomeWindowLaunchContext {
+    if (this.launchContextState.type === "uninitialized") {
+      throw new Error(
+        "Welcomeウィンドウの起動コンテキストが初期化されていません。",
+      );
+    }
+    return this.launchContextState.context;
   }
 
   public showOpenDialogSync(options: OpenDialogSyncOptions) {
