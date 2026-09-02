@@ -237,6 +237,15 @@ export interface SpeakersRequest {
     coreVersion?: string;
 }
 
+export interface StreamingSynthesisRequest {
+    speaker: number;
+    audioQuery: AudioQuery;
+    startOffset?: number;
+    segmentLength?: number;
+    enableInterrogativeUpspeak?: boolean;
+    coreVersion?: string;
+}
+
 export interface SupportedDevicesRequest {
     coreVersion?: string;
 }
@@ -885,6 +894,26 @@ export interface DefaultApiInterface {
      * Speakers
      */
     speakers(requestParameters: SpeakersRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Speaker>>;
+
+    /**
+     *
+     * @summary ストリーミングで音声合成する
+     * @param {number} speaker
+     * @param {AudioQuery} audioQuery
+     * @param {number} [startOffset] 音声の開始位置
+     * @param {number} [segmentLength] 一度に合成する音声の長さ
+     * @param {boolean} [enableInterrogativeUpspeak] 疑問系のテキストが与えられたら語尾を自動調整する
+     * @param {string} [coreVersion]
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApiInterface
+     */
+    streamingSynthesisRaw(requestParameters: StreamingSynthesisRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Blob>>;
+
+    /**
+     * ストリーミングで音声合成する
+     */
+    streamingSynthesis(requestParameters: StreamingSynthesisRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob>;
 
     /**
      * 対応デバイスの一覧を取得します。
@@ -2484,6 +2513,63 @@ export class DefaultApi extends runtime.BaseAPI implements DefaultApiInterface {
      */
     async speakers(requestParameters: SpeakersRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Speaker>> {
         const response = await this.speakersRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * ストリーミングで音声合成する
+     */
+    async streamingSynthesisRaw(requestParameters: StreamingSynthesisRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Blob>> {
+        if (requestParameters.speaker === null || requestParameters.speaker === undefined) {
+            throw new runtime.RequiredError('speaker','Required parameter requestParameters.speaker was null or undefined when calling streamingSynthesis.');
+        }
+
+        if (requestParameters.audioQuery === null || requestParameters.audioQuery === undefined) {
+            throw new runtime.RequiredError('audioQuery','Required parameter requestParameters.audioQuery was null or undefined when calling streamingSynthesis.');
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters.speaker !== undefined) {
+            queryParameters['speaker'] = requestParameters.speaker;
+        }
+
+        if (requestParameters.startOffset !== undefined) {
+            queryParameters['start_offset'] = requestParameters.startOffset;
+        }
+
+        if (requestParameters.segmentLength !== undefined) {
+            queryParameters['segment_length'] = requestParameters.segmentLength;
+        }
+
+        if (requestParameters.enableInterrogativeUpspeak !== undefined) {
+            queryParameters['enable_interrogative_upspeak'] = requestParameters.enableInterrogativeUpspeak;
+        }
+
+        if (requestParameters.coreVersion !== undefined) {
+            queryParameters['core_version'] = requestParameters.coreVersion;
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        const response = await this.request({
+            path: `/streaming_synthesis`,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: AudioQueryToJSON(requestParameters.audioQuery),
+        }, initOverrides);
+
+        return new runtime.BlobApiResponse(response);
+    }
+
+    /**
+     * ストリーミングで音声合成する
+     */
+    async streamingSynthesis(requestParameters: StreamingSynthesisRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Blob> {
+        const response = await this.streamingSynthesisRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
