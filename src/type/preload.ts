@@ -141,7 +141,12 @@ export type AppInfos = {
   version: string;
 };
 
-export type StyleType = "talk" | "singing_teacher" | "frame_decode" | "sing";
+export type StyleType =
+  | "talk"
+  | "streaming_talk"
+  | "singing_teacher"
+  | "frame_decode"
+  | "sing";
 
 export type StyleInfo = {
   styleName?: string;

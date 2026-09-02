@@ -745,8 +745,16 @@ export type AudioPlayerStoreTypes = {
     action(payload: { offset?: number; audioKey?: AudioKey }): Promise<boolean>;
   };
 
+  PLAY_AUDIO_STREAM: {
+    action(payload: {
+      response: Response;
+      startOffset: number;
+      audioKey: AudioKey;
+    }): Promise<boolean>;
+  };
+
   STOP_AUDIO: {
-    action(): void;
+    action(): Promise<void>;
   };
 };
 

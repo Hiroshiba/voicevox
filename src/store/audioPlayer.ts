@@ -1,10 +1,15 @@
 /**
- * HTMLAudioElement周りの音声再生・停止などを担当する。
+ * 通常音声とストリーミング音声の再生・停止などを担当する。
  */
 import { createPartialStore } from "./vuex";
+import {
+  createAudioStreamPlayer,
+  type AudioStreamPlayer,
+  type AudioStreamPlayerResult,
+} from "./audioStreamPlayer";
 import type { AudioPlayerStoreState, AudioPlayerStoreTypes } from "./type";
-import type { AudioKey } from "@/type/preload";
 import { showAlertDialog } from "@/components/Dialog/Dialog";
+import type { AudioKey } from "@/type/preload";
 
 // ユニットテストが落ちるのを回避するための遅延読み込み
 const getAudioElement = (() => {
@@ -17,6 +22,122 @@ const getAudioElement = (() => {
   };
 })();
 
+const getAudioStreamPlayer = (() => {
+  let player: AudioStreamPlayer | undefined = undefined;
+  return () => {
+    if (player == undefined) {
+      player = createAudioStreamPlayer({
+        createAudioContext: createCompatibleAudioContext,
+      });
+    }
+    return player;
+  };
+})();
+
+type AudioStreamSession = {
+  readonly id: number;
+  readonly promise: Promise<AudioStreamPlayerResult>;
+};
+
+let nextAudioStreamSessionId = 0;
+let activeAudioStreamSession: AudioStreamSession | undefined = undefined;
+
+type SupportedAudioContext = AudioContext & {
+  readonly state: "suspended" | "running" | "closed";
+};
+
+const isSupportedAudioContext = (
+  context: AudioContext,
+): context is SupportedAudioContext => context.state !== "interrupted";
+
+type CompatibleAudioBuffer = {
+  readonly nativeBuffer: AudioBuffer;
+  copyToChannel(source: Float32Array, channelNumber: number): void;
+};
+
+const createCompatibleAudioContext = () => {
+  const nativeContext = new AudioContext();
+  if (!isSupportedAudioContext(nativeContext)) {
+    throw new Error("AudioContextの状態に対応していません。");
+  }
+
+  const destination = {};
+  const getState = (): "suspended" | "running" | "closed" => {
+    if (nativeContext.state === "suspended") return "suspended";
+    if (nativeContext.state === "running") return "running";
+    if (nativeContext.state === "closed") return "closed";
+    throw new Error("AudioContextの状態に対応していません。");
+  };
+
+  return {
+    get currentTime() {
+      return nativeContext.currentTime;
+    },
+    destination,
+    get state() {
+      return getState();
+    },
+    createBuffer(
+      numberOfChannels: number,
+      length: number,
+      sampleRate: number,
+    ): CompatibleAudioBuffer {
+      const nativeBuffer = nativeContext.createBuffer(
+        numberOfChannels,
+        length,
+        sampleRate,
+      );
+      return {
+        nativeBuffer,
+        copyToChannel(source, channelNumber) {
+          nativeBuffer.copyToChannel(new Float32Array(source), channelNumber);
+        },
+      };
+    },
+    createBufferSource() {
+      const nativeSource = nativeContext.createBufferSource();
+      let buffer: CompatibleAudioBuffer | null = null;
+      let onended: (() => void) | null = null;
+      nativeSource.onended = () => {
+        if (onended != undefined) onended();
+      };
+      return {
+        get buffer() {
+          return buffer;
+        },
+        set buffer(value: CompatibleAudioBuffer | null) {
+          buffer = value;
+          nativeSource.buffer = value?.nativeBuffer ?? null;
+        },
+        get onended() {
+          return onended;
+        },
+        set onended(value: (() => void) | null) {
+          onended = value;
+        },
+        connect(value: object) {
+          if (value !== destination) {
+            throw new Error("AudioContextの出力先が不正です。");
+          }
+          nativeSource.connect(nativeContext.destination);
+        },
+        start(when: number) {
+          nativeSource.start(when);
+        },
+        stop() {
+          nativeSource.stop();
+        },
+      };
+    },
+    resume() {
+      return nativeContext.resume();
+    },
+    setSinkId(sinkId: string) {
+      return nativeContext.setSinkId(sinkId);
+    },
+  };
+};
+
 export const audioPlayerStoreState: AudioPlayerStoreState = {
   nowPlayingAudioKey: undefined,
 };
@@ -24,10 +145,13 @@ export const audioPlayerStoreState: AudioPlayerStoreState = {
 export const audioPlayerStore = createPartialStore<AudioPlayerStoreTypes>({
   ACTIVE_AUDIO_ELEM_CURRENT_TIME_GETTER: {
     getter: (state) => {
-      return () =>
-        state._activeAudioKey != undefined
+      return () => {
+        const streamCurrentTime = getAudioStreamPlayer().getCurrentTime();
+        if (streamCurrentTime != undefined) return streamCurrentTime;
+        return state._activeAudioKey != undefined
           ? getAudioElement().currentTime
           : undefined;
+      };
     },
   },
 
@@ -113,11 +237,67 @@ export const audioPlayerStore = createPartialStore<AudioPlayerStoreTypes>({
     },
   },
 
+  PLAY_AUDIO_STREAM: {
+    async action(
+      { state, mutations },
+      {
+        response,
+        startOffset,
+        audioKey,
+      }: { response: Response; startOffset: number; audioKey: AudioKey },
+    ) {
+      if (activeAudioStreamSession != undefined) {
+        throw new Error("音声ストリームはすでに再生中です。");
+      }
+      const sessionId = ++nextAudioStreamSessionId;
+      const player = getAudioStreamPlayer();
+      const playPromise = player.play(
+        response,
+        startOffset,
+        state.savingSetting.audioOutputDevice,
+        () => {
+          const session = activeAudioStreamSession;
+          if (session == undefined || session.id !== sessionId) return;
+          mutations.SET_AUDIO_NOW_PLAYING({ audioKey, nowPlaying: true });
+          mutations.SET_AUDIO_NOW_GENERATING({
+            audioKey,
+            nowGenerating: false,
+          });
+        },
+      );
+
+      const clearSession = () => {
+        const session = activeAudioStreamSession;
+        if (session == undefined || session.id !== sessionId) return;
+        activeAudioStreamSession = undefined;
+        if (state.nowPlayingAudioKey === audioKey) {
+          mutations.SET_AUDIO_NOW_PLAYING({ audioKey, nowPlaying: false });
+        }
+      };
+      const settledPromise = playPromise.then(
+        (result) => {
+          clearSession();
+          return result;
+        },
+        (error: unknown) => {
+          clearSession();
+          throw error;
+        },
+      );
+      activeAudioStreamSession = { id: sessionId, promise: settledPromise };
+      const result = await settledPromise;
+      return result.type === "completed";
+    },
+  },
+
   STOP_AUDIO: {
     // 停止中でも呼び出して問題ない
-    action() {
-      // PLAY_ でonpause時の処理が設定されているため、pauseするだけで良い
+    async action() {
       getAudioElement().pause();
+      const session = activeAudioStreamSession;
+      if (session == undefined) return;
+      await getAudioStreamPlayer().stop();
+      await session.promise;
     },
   },
 });

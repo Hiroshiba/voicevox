@@ -34,7 +34,10 @@ import {
   isMorphable,
 } from "./audioGenerate";
 import { ContinuousPlayer } from "./audioContinuousPlayer";
-import { convertAudioQueryFromEngineToEditor } from "./proxy";
+import {
+  convertAudioQueryFromEditorToEngine,
+  convertAudioQueryFromEngineToEditor,
+} from "./proxy";
 import {
   convertHiraToKana,
   convertLongVowel,
@@ -61,7 +64,7 @@ import { getValueOrThrow, ResultError } from "@/type/result";
 import { generateWriteErrorMessage } from "@/helpers/fileHelper";
 import { uuid4 } from "@/helpers/random";
 import { cloneWithUnwrapProxy } from "@/helpers/cloneWithUnwrapProxy";
-import { UnreachableError } from "@/type/utility";
+import { assertNonNullable, UnreachableError } from "@/type/utility";
 import { errorToMessage } from "@/helpers/errorHelper";
 import path from "@/helpers/path";
 import { generateTextFileData } from "@/helpers/fileDataGenerator";
@@ -69,6 +72,26 @@ import { generateTextFileData } from "@/helpers/fileDataGenerator";
 function generateAudioKey() {
   return AudioKey(uuid4());
 }
+
+const getOptionalRecordValue = <K extends string, V>(
+  record: Record<K, V>,
+  key: K,
+): V | undefined => {
+  if (!Object.prototype.hasOwnProperty.call(record, key)) return undefined;
+  return record[key];
+};
+
+const getAudioPlayStartOffset = (
+  accentPhraseOffsets: readonly (number | undefined)[],
+  audioPlayStartPoint: number | undefined,
+): number => {
+  if (accentPhraseOffsets.length === 0) {
+    throw new Error("accentPhraseOffsets.length === 0");
+  }
+  const startTime = accentPhraseOffsets[audioPlayStartPoint ?? 0];
+  assertNonNullable(startTime);
+  return startTime + 10e-6;
+};
 
 function parseTextFile(
   body: string,
@@ -1743,8 +1766,87 @@ export const audioStore = createPartialStore<AudioStoreTypes>({
 
   PLAY_AUDIO: {
     action: createUILockAction(
-      async ({ mutations, actions }, { audioKey }: { audioKey: AudioKey }) => {
+      async (
+        { getters, mutations, actions, state },
+        { audioKey }: { audioKey: AudioKey },
+      ) => {
         await actions.STOP_AUDIO();
+
+        const audioItem = getOptionalRecordValue(state.audioItems, audioKey);
+        assertNonNullable(audioItem);
+        const voice = audioItem.voice;
+        const characterInfo = getters.CHARACTER_INFO(
+          voice.engineId,
+          voice.styleId,
+        );
+        assertNonNullable(characterInfo);
+        const style = characterInfo.metas.styles.find(
+          (style) => style.styleId === voice.styleId,
+        );
+        assertNonNullable(style);
+
+        if (
+          style.styleType === "streaming_talk" &&
+          audioItem.morphingInfo == undefined
+        ) {
+          const query = audioItem.query;
+          assertNonNullable(query);
+          const engineSetting = getOptionalRecordValue(
+            state.engineSettings,
+            voice.engineId,
+          );
+          assertNonNullable(engineSetting);
+          const engineManifest = getOptionalRecordValue(
+            state.engineManifests,
+            voice.engineId,
+          );
+          assertNonNullable(engineManifest);
+
+          const editorAudioQuery = cloneWithUnwrapProxy(query);
+          editorAudioQuery.outputSamplingRate =
+            engineSetting.outputSamplingRate;
+          editorAudioQuery.outputStereo = state.savingSetting.outputStereo;
+          const audioQuery = convertAudioQueryFromEditorToEngine(
+            editorAudioQuery,
+            engineManifest.defaultSamplingRate,
+          );
+          mutations.SET_AUDIO_NOW_GENERATING({
+            audioKey,
+            nowGenerating: true,
+          });
+          try {
+            const accentPhraseOffsets = await actions.GET_AUDIO_PLAY_OFFSETS({
+              audioKey,
+            });
+            const startOffset = getAudioPlayStartOffset(
+              accentPhraseOffsets,
+              getters.AUDIO_PLAY_START_POINT,
+            );
+            const instance = await actions.INSTANTIATE_ENGINE_CONNECTOR({
+              engineId: voice.engineId,
+            });
+            const response = await withProgress(
+              instance.invoke("streamingSynthesisRaw")({
+                audioQuery,
+                speaker: voice.styleId,
+                startOffset,
+                enableInterrogativeUpspeak:
+                  state.experimentalSetting.enableInterrogativeUpspeak,
+              }),
+              actions,
+            );
+            return await actions.PLAY_AUDIO_STREAM({
+              response: response.raw,
+              startOffset,
+              audioKey,
+            });
+          } finally {
+            mutations.SET_AUDIO_NOW_GENERATING({
+              audioKey,
+              nowGenerating: false,
+            });
+          }
+        }
 
         // 音声用意
         let fetchAudioResult: FetchAudioResult;
@@ -1788,12 +1890,12 @@ export const audioStore = createPartialStore<AudioStoreTypes>({
           });
           if (accentPhraseOffsets.length === 0)
             throw new Error("accentPhraseOffsets.length === 0");
-          const startTime =
-            accentPhraseOffsets[getters.AUDIO_PLAY_START_POINT ?? 0];
-          if (startTime == undefined) throw Error("startTime == undefined");
           // 小さい値が切り捨てられることでフォーカスされるアクセントフレーズが一瞬元に戻るので、
           // 再生に影響のない程度かつ切り捨てられない値を加算する
-          offset = startTime + 10e-6;
+          offset = getAudioPlayStartOffset(
+            accentPhraseOffsets,
+            getters.AUDIO_PLAY_START_POINT,
+          );
         }
 
         return actions.PLAY_AUDIO_PLAYER({ offset, audioKey });
