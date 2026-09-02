@@ -1,0 +1,1 @@
+!include "installer-common.nsh"

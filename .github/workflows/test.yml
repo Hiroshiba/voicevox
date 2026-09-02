@@ -46,6 +46,8 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup-environment
       - run: pnpm run electron:build
+        env:
+          VOICEVOX_ENGINE_MODE: "download-vvpp"
 
   # unit テスト
   unit-test:

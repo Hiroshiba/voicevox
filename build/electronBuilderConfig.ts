@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
+import { parseInstallerMode } from "./installerMode";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -14,6 +15,7 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
+const installerMode = parseInstallerMode(process.env.VOICEVOX_ENGINE_MODE);
 const VOICEVOX_ENGINE_DIR =
   process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
 
@@ -100,10 +102,14 @@ const builderOptions: ElectronBuilderConfiguration = {
       from: "build/README.txt",
       to: extraFilePrefix + "README.txt",
     },
-    {
-      from: VOICEVOX_ENGINE_DIR,
-      to: path.join(extraFilePrefix, "vv-engine"),
-    },
+    ...(installerMode === "embed-engine"
+      ? [
+          {
+            from: VOICEVOX_ENGINE_DIR,
+            to: path.join(extraFilePrefix, "vv-engine"),
+          },
+        ]
+      : []),
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
       to: extraFilePrefix + sevenZipFile,
@@ -140,7 +146,10 @@ const builderOptions: ElectronBuilderConfiguration = {
   },
   nsisWeb: {
     artifactName: NSIS_WEB_ARTIFACT_NAME || undefined,
-    include: "build/installer.nsh",
+    include:
+      installerMode === "embed-engine"
+        ? "build/installer.nsh"
+        : "build/installer-web.nsh",
     oneClick: false,
     allowToChangeInstallationDirectory: true,
   },
