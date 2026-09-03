@@ -6,7 +6,6 @@ import { z } from "zod";
 
 import type { EnginePackageLatestInfo } from "@/domain/enginePackage";
 import type { EngineId } from "@/type/preload";
-import { assertNonNullable } from "@/type/utility";
 
 /** Runtime Target */
 export const runtimeTargetSchema = z.string().regex(/^[^-]+-[^-]+-[^-]+$/);
@@ -72,10 +71,6 @@ export const getDefaultRuntimeTarget = (
   }
 
   const [defaultRuntimeTargetInfo] = defaultRuntimeTargetInfos;
-  assertNonNullable(
-    defaultRuntimeTargetInfo,
-    `推奨ランタイムターゲットがありません。エンジンID: ${engineId}`,
-  );
   if (defaultRuntimeTargetInfo.packageInfo.files.length === 0) {
     throw new Error(
       `推奨ランタイムターゲットのパッケージにファイルがありません。エンジンID: ${engineId}、ターゲット: ${defaultRuntimeTargetInfo.target}`,

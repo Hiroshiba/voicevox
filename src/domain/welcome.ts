@@ -1,5 +1,5 @@
-import { engineIdSchema } from "@/type/preload";
 import { z } from "zod";
+import { engineIdSchema } from "@/type/preload";
 
 export const welcomeWindowLaunchContextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("initialSetup"), engineId: engineIdSchema }),

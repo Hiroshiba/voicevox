@@ -3,7 +3,7 @@ import { getMainWindowManager } from "./manager/windowManager/main";
 import { getEngineAndVvppController } from "./engineAndVvppController";
 import { getConfigManager } from "./electronConfig";
 import { getWelcomeWindowManager } from "./manager/windowManager/welcome";
-import { assertNonNullable, ExhaustiveError } from "@/type/utility";
+import { ExhaustiveError } from "@/type/utility";
 import { createLogger } from "@/helpers/log";
 import { Mutex } from "@/helpers/mutex";
 import type { WelcomeWindowLaunchContext } from "@/domain/welcome";
@@ -52,10 +52,6 @@ export class AppStateController {
         return;
       }
       const [engineId] = engineIds;
-      assertNonNullable(
-        engineId,
-        "ダウンロード可能なデフォルトエンジンIDがありません。",
-      );
       await this.launchWelcomeWindow({ type: "initialSetup", engineId });
     }
   }
