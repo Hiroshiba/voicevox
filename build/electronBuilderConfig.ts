@@ -247,7 +247,7 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    // 非署名ビルドではElectron BuilderによるIdentityの自動検出を無効化する。
+    // 正式署名しない場合はElectron Builderで署名せず、完成したアプリを後段でad hoc署名する。
     ...(isMacCodeSigning ? { notarize: true } : { identity: null }),
   },
   dmg: {
