@@ -320,12 +320,22 @@ test("自動導入失敗後に手動で再試行できる", async ({ launchElect
   });
 
   await test.step("導入中の終了を抑止する", async () => {
-    const closeButton = welcomePage
-      .getByRole("button", { name: "閉じる" })
-      .first();
     await expect.poll(() => vvppDownloadRequestCount).toBe(1);
     try {
-      await closeButton.click();
+      if (process.platform === "darwin") {
+        await app.evaluate(({ BrowserWindow }) => {
+          const window = BrowserWindow.getFocusedWindow();
+          if (window == undefined) {
+            throw new Error("Welcomeウィンドウを取得できません。");
+          }
+          window.close();
+        });
+      } else {
+        await welcomePage
+          .getByRole("button", { name: "閉じる" })
+          .first()
+          .click();
+      }
       await expect(
         welcomePage.getByText("エンジンのセットアップ"),
       ).toBeVisible();
