@@ -18,6 +18,22 @@
     ${if} $installMode == "all"
       SetShellVarContext all
     ${endif}
+
+    !ifdef VOICEVOX_AUTO_START_APP
+      ${ifNot} ${Silent}
+        HideWindow
+        ${if} ${isUpdated}
+          StrCpy $1 "--updated"
+        ${else}
+          StrCpy $1 ""
+        ${endif}
+        ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
+        ${if} $0 != "ok"
+        ${andIf} $0 != "fallback"
+          MessageBox MB_OK|MB_ICONSTOP|MB_TOPMOST "アプリを自動起動できませんでした。インストール先またはスタートメニューから手動で起動してください。戻り値: $0"
+        ${endif}
+      ${endif}
+    !endif
   FunctionEnd
 !macroend
 
