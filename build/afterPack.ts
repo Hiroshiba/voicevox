@@ -2,7 +2,9 @@ import path from "node:path";
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 
-function resolveMacOSAppPaths(
+type VoicevoxEngineSourceKind = "include" | "exclude";
+
+function resolveMacosAppPaths(
   appOutDir: string,
   productFilename: string,
 ): { contentsPath: string; resourcesPath: string } {
@@ -12,7 +14,7 @@ function resolveMacOSAppPaths(
   return { contentsPath, resourcesPath };
 }
 
-function setElectronHelperPermissions(
+function setMacosHelperExecutablePermissions(
   contentsPath: string,
   sanitizedProductName: string,
 ): void {
@@ -39,9 +41,9 @@ function setElectronHelperPermissions(
   }
 }
 
-function setVoicevoxEngineRunPermission(
+function setVoicevoxEngineRunPermissions(
   resourcesPath: string,
-  voicevoxEngineSourceKind: "include" | "exclude",
+  voicevoxEngineSourceKind: VoicevoxEngineSourceKind,
 ): void {
   if (voicevoxEngineSourceKind === "include") {
     const engineRunPath = path.join(resourcesPath, "vv-engine", "run");
@@ -52,7 +54,7 @@ function setVoicevoxEngineRunPermission(
   }
 }
 
-function createMacOSLocalizationDirectories(resourcesPath: string): void {
+function createMacosLocalizationDirectories(resourcesPath: string): void {
   // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
   mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
   mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
@@ -61,20 +63,20 @@ function createMacOSLocalizationDirectories(resourcesPath: string): void {
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
   context: AfterPackContext,
-  voicevoxEngineSourceKind: "include" | "exclude",
+  voicevoxEngineSourceKind: VoicevoxEngineSourceKind,
 ): void {
   if (context.electronPlatformName !== "darwin") {
     return;
   }
 
-  const { contentsPath, resourcesPath } = resolveMacOSAppPaths(
+  const { contentsPath, resourcesPath } = resolveMacosAppPaths(
     context.appOutDir,
     context.packager.appInfo.productFilename,
   );
-  setElectronHelperPermissions(
+  setMacosHelperExecutablePermissions(
     contentsPath,
     context.packager.appInfo.sanitizedProductName,
   );
-  setVoicevoxEngineRunPermission(resourcesPath, voicevoxEngineSourceKind);
-  createMacOSLocalizationDirectories(resourcesPath);
+  setVoicevoxEngineRunPermissions(resourcesPath, voicevoxEngineSourceKind);
+  createMacosLocalizationDirectories(resourcesPath);
 }
