@@ -247,8 +247,8 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    ...(isMacCodeSigning ? {} : { identity: null }),
-    ...(isMacCodeSigning ? { notarize: true } : {}),
+    // 非署名ビルドではElectron BuilderによるIdentityの自動検出を無効化する。
+    ...(isMacCodeSigning ? { notarize: true } : { identity: null }),
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
