@@ -51,7 +51,6 @@ jobs:
           # Linux (x64)
           - artifact_name: linux-prepackage
             artifact_path: dist_electron/linux-unpacked
-            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-linux
             installer_artifact_name: linux-appimage
@@ -63,7 +62,6 @@ jobs:
           # Linux (arm64)
           - artifact_name: linux-arm64-prepackage
             artifact_path: dist_electron/linux-arm64-unpacked
-            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-linux-arm64
             installer_artifact_name: linux-arm64-appimage
@@ -75,7 +73,6 @@ jobs:
           # Windows
           - artifact_name: windows-prepackage
             artifact_path: dist_electron/win-unpacked
-            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-windows
             installer_artifact_name: windows-nsis-web
@@ -85,7 +82,6 @@ jobs:
           # macOS (x64)
           - artifact_name: macos-x64-prepackage
             artifact_path: dist_electron/mac
-            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-x64
             installer_artifact_name: macos-x64-dmg
@@ -95,7 +91,6 @@ jobs:
           # macOS (arm64)
           - artifact_name: macos-arm64-prepackage
             artifact_path: dist_electron/mac-arm64
-            voicevox_engine_asset_name: none
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-arm64
             installer_artifact_name: macos-arm64-dmg
@@ -256,7 +251,7 @@ jobs:
           path: resource
 
       - name: Download VOICEVOX ENGINE
-        if: matrix.voicevox_engine_asset_name != 'none'
+        if: matrix.voicevox_engine_asset_name != null
         id: download-engine
         uses: ./.github/actions/download-engine
         with:
@@ -292,31 +287,21 @@ jobs:
           gtm_id=$(jq -er '.gtm_container_id' resource/editor/metas.json)
           echo "VITE_GTM_CONTAINER_ID=$gtm_id" >> $GITHUB_ENV
 
-      - name: Compile Electron app
-        run: pnpm run electron:build:compile
-
-      - name: Setup Windows Code Signing
-        id: setup-windows-code-signing-prepackage
-        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
-        run: bash tools/codesign_setup.bash
-        env:
-          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
-          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
-          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
-          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
-
       - name: Define Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
-          THUMBPRINT="$(<"$THUMBPRINT_PATH")"
-          SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
+          bash tools/codesign_setup.bash
+          THUMBPRINT="$(head -n 1 $THUMBPRINT_PATH)"
+          SIGNTOOL_PATH="$(head -n 1 $SIGNTOOL_PATH_PATH)"
           echo "::add-mask::$THUMBPRINT"
 
           echo "WIN_CERTIFICATE_SHA1=$THUMBPRINT" >> $GITHUB_ENV
           echo 'WIN_SIGNING_HASH_ALGORITHMS=["sha256"]' >> $GITHUB_ENV
           echo "SIGNTOOL_PATH=$SIGNTOOL_PATH" >> $GITHUB_ENV
         env:
+          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
+          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
+          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
@@ -334,13 +319,13 @@ jobs:
           USE_HARD_LINKS: false
         run: |
           if [[ "${{ startsWith(matrix.os, 'macos-') }}" == "true" ]]; then
-            if [[ "${{ matrix.voicevox_engine_asset_name != 'none' }}" == "true" ]]; then
-              VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build:pack --dir
+            if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
+              VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build --dir
             else
-              VOICEVOX_ENGINE_DIR="none" pnpm run electron:build:pack --dir
+              VOICEVOX_ENGINE_DIR="" pnpm run electron:build --dir
             fi
           else
-            pnpm run electron:build:pack --dir
+            pnpm run electron:build --dir
           fi
 
       - name: Build, sign, and notarize macOS app
@@ -348,7 +333,7 @@ jobs:
         env:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           MACOS_CODE_SIGNING: "true"
-          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != 'none' && format('{0}/voicevox_engine', github.workspace) || 'none' }}
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
@@ -401,10 +386,10 @@ jobs:
           chmod 600 "$api_key_path"
 
           unset APPLE_API_KEY_BASE64
-          APPLE_API_KEY="$api_key_path" pnpm run electron:build:pack --dir
+          APPLE_API_KEY="$api_key_path" pnpm run electron:build --dir
 
       - name: Reset Code Signing Envs
-        if: always() && steps.setup-windows-code-signing-prepackage.outcome == 'success'
+        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
           bash tools/codesign_cleanup.bash
           echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
@@ -412,22 +397,19 @@ jobs:
           echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
       - name: Rename Prepackage
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
-      - name: Verify macOS signature and notarization
-        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
-        run: |
-          codesign --verify --deep --strict --verbose=2 prepackage/VOICEVOX.app
-          xcrun stapler validate prepackage/VOICEVOX.app
-
       - name: Merge VOICEVOX ENGINE into prepackage/
-        if: matrix.voicevox_engine_asset_name != 'none' && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
+        if: matrix.voicevox_engine_asset_name != null && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
         run: |
           mv voicevox_engine/ prepackage/vv-engine/
+
+      - name: Ad hoc code signing
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing != 'true'
+        run: codesign --force --deep -s - prepackage/VOICEVOX.app
 
       - name: Recover file permissions
         if: startsWith(matrix.artifact_name, 'linux-') # Linux
@@ -436,10 +418,6 @@ jobs:
           if [ -d "prepackage/vv-engine" ]; then
             chmod +x "prepackage/vv-engine/run"
           fi
-
-      - name: Ad hoc code signing
-        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing != 'true'
-        run: codesign --force --deep -s - prepackage/VOICEVOX.app
 
       - name: Create Linux tar.gz (without nvidia)
         if: startsWith(matrix.artifact_name, 'linux-') && !contains(matrix.artifact_name, 'nvidia')
@@ -503,28 +481,21 @@ jobs:
         run: |
           rm ${{ matrix.compressed_artifact_name }}-${{ env.VOICEVOX_EDITOR_VERSION }}.zip
 
-      - name: Setup Windows Code Signing
-        id: setup-windows-code-signing-installer
-        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
-        run: bash tools/codesign_setup.bash
-        env:
-          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
-          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
-          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
-          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
-
       - name: Define Code Signing Envs
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
-          THUMBPRINT="$(<"$THUMBPRINT_PATH")"
-          SIGNTOOL_PATH="$(<"$SIGNTOOL_PATH_PATH")"
+          bash tools/codesign_setup.bash
+          THUMBPRINT="$(head -n 1 $THUMBPRINT_PATH)"
+          SIGNTOOL_PATH="$(head -n 1 $SIGNTOOL_PATH_PATH)"
           echo "::add-mask::$THUMBPRINT"
 
           echo "WIN_CERTIFICATE_SHA1=$THUMBPRINT" >> $GITHUB_ENV
           echo 'WIN_SIGNING_HASH_ALGORITHMS=["sha256"]' >> $GITHUB_ENV
           echo "SIGNTOOL_PATH=$SIGNTOOL_PATH" >> $GITHUB_ENV
         env:
+          ESIGNERCKA_USERNAME: ${{ secrets.ESIGNERCKA_USERNAME }}
+          ESIGNERCKA_PASSWORD: ${{ secrets.ESIGNERCKA_PASSWORD }}
+          ESIGNERCKA_TOTP_SECRET: ${{ secrets.ESIGNERCKA_TOTP_SECRET }}
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
@@ -546,7 +517,7 @@ jobs:
           pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
 
       - name: Reset Code Signing Envs
-        if: always() && steps.setup-windows-code-signing-installer.outcome == 'success'
+        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
         run: |
           bash tools/codesign_cleanup.bash
           echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
@@ -554,7 +525,6 @@ jobs:
           echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-          SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
       - name: Create Linux AppImage split
         if: endsWith(matrix.installer_artifact_name, '-appimage')

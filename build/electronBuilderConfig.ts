@@ -7,10 +7,6 @@ import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 
 const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
-const voicevoxEngineSettingSchema = z.union([
-  z.literal("none"),
-  z.string().min(1),
-]);
 const voicevoxEngineSourceSchema = z.discriminatedUnion("kind", [
   z
     .object({ kind: z.literal("include"), directory: z.string().min(1) })
@@ -23,19 +19,18 @@ type VoicevoxEngineSource = z.infer<typeof voicevoxEngineSourceSchema>;
 function resolveVoicevoxEngineSource(
   value: string | undefined,
 ): VoicevoxEngineSource {
-  const parsedValue = voicevoxEngineSettingSchema.optional().parse(value);
-  if (parsedValue == undefined) {
+  if (value == undefined) {
     return voicevoxEngineSourceSchema.parse({
       kind: "include",
       directory: DEFAULT_VOICEVOX_ENGINE_DIR,
     });
   }
-  if (parsedValue === "none") {
+  if (value === "") {
     return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
   }
   return voicevoxEngineSourceSchema.parse({
     kind: "include",
-    directory: parsedValue,
+    directory: value,
   });
 }
 
