@@ -456,13 +456,12 @@ jobs:
 
       # NOTE: prepackage can be removed before splitting nsis-web archive
       - name: Build Electron
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') || endsWith(matrix.installer_artifact_name, '-appimage') # windows and linux
         env:
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
-        run: |
-          pnpm run electron:build:pack --prepackaged prepackage/
+          MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
+        run: pnpm run electron:build:pack --prepackaged ${{ startsWith(matrix.os, 'macos-') && 'prepackage/VOICEVOX.app' || 'prepackage/' }}
 
       - name: Cleanup Windows Code Signing
         if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
@@ -473,13 +472,6 @@ jobs:
           echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-
-      - name: Build Electron (for macOS)
-        if: endsWith(matrix.installer_artifact_name, '-dmg') # macOS
-        env:
-          MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-        run: |
-          pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
 
       - name: Create Linux AppImage split
         if: endsWith(matrix.installer_artifact_name, '-appimage')
