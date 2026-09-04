@@ -305,39 +305,6 @@ jobs:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
-      # Build result will be exported to ${{ matrix.artifact_path }}
-      - name: Build Electron
-        if: github.event.inputs.code_signing != 'true' || !startsWith(matrix.os, 'macos-')
-        env:
-          NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
-          LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
-          LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
-          MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-          MACOS_CODE_SIGNING: "false"
-
-          # https://github.com/electron-userland/electron-builder/issues/3179
-          USE_HARD_LINKS: false
-        run: |
-          if [[ "${{ startsWith(matrix.os, 'macos-') }}" == "true" ]]; then
-            if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
-              VOICEVOX_ENGINE_DIR="${{ github.workspace }}/voicevox_engine" pnpm run electron:build --dir
-            else
-              VOICEVOX_ENGINE_DIR="" pnpm run electron:build --dir
-            fi
-          else
-            pnpm run electron:build --dir
-          fi
-
-      - name: Cleanup Windows Code Signing
-        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
-        run: |
-          bash tools/codesign_cleanup_windows.bash
-          echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
-          echo 'WIN_SIGNING_HASH_ALGORITHMS=' >> $GITHUB_ENV
-          echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
-        env:
-          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
-
       - name: Setup macOS Code Signing
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         run: bash tools/codesign_setup_macos.bash
@@ -349,20 +316,36 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY_PATH: ${{ runner.temp }}/voicevox-apple-api-key.p8
 
-      - name: Build, sign, and notarize macOS app
-        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
+      # Build result will be exported to ${{ matrix.artifact_path }}
+      - name: Build Electron
         env:
+          NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
+          LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
+          LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-          MACOS_CODE_SIGNING: "true"
-          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          MACOS_CODE_SIGNING: ${{ github.event.inputs.code_signing == 'true' && 'true' || 'false' }}
+          VOICEVOX_ENGINE_DIR: ${{ startsWith(matrix.os, 'macos-') && matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
           APPLE_API_KEY: ${{ runner.temp }}/voicevox-apple-api-key.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Windowsでは汎用CSC_LINKへのフォールバックを防ぐ。
+          WIN_CSC_LINK: ""
 
+          # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false
         run: pnpm run electron:build --dir
+
+      - name: Cleanup Windows Code Signing
+        if: startsWith(matrix.os, 'windows-') && github.event.inputs.code_signing == 'true'
+        run: |
+          bash tools/codesign_cleanup_windows.bash
+          echo 'WIN_CERTIFICATE_SHA1=' >> $GITHUB_ENV
+          echo 'WIN_SIGNING_HASH_ALGORITHMS=' >> $GITHUB_ENV
+          echo 'SIGNTOOL_PATH=' >> $GITHUB_ENV
+        env:
+          THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
 
       - name: Cleanup macOS Code Signing
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
