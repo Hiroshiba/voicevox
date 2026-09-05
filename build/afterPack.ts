@@ -67,9 +67,6 @@ function transferVoicevoxEngine(
     context.packager.projectDir,
     voicevoxEngineSource.directory,
   );
-  const executableName =
-    context.electronPlatformName === "win32" ? "run.exe" : "run";
-
   if (voicevoxEngineSource.transferMode === "move") {
     renameSync(source, destination);
   } else {
@@ -79,8 +76,8 @@ function transferVoicevoxEngine(
     });
   }
 
-  const executablePath = path.join(destination, executableName);
   if (context.electronPlatformName !== "win32") {
+    const executablePath = path.join(destination, "run");
     chmodSync(executablePath, 0o755);
   }
 }
