@@ -319,7 +319,6 @@ jobs:
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-          MACOS_CODE_SIGNING: ${{ github.event.inputs.code_signing == 'true' && 'true' || 'false' }}
           VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
           VOICEVOX_ENGINE_TRANSFER_MODE: move
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
