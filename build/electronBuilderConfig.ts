@@ -5,23 +5,16 @@ import type { Configuration as ElectronBuilderConfiguration } from "electron-bui
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
+import {
+  voicevoxEngineSourceSchema,
+  voicevoxEngineTransferModeSchema,
+} from "./voicevoxEngineSource";
+import type {
+  VoicevoxEngineSource,
+  VoicevoxEngineTransferMode,
+} from "./voicevoxEngineSource";
 
 const rootDir = path.join(import.meta.dirname, "..");
-const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
-type VoicevoxEngineTransferMode = z.infer<
-  typeof voicevoxEngineTransferModeSchema
->;
-const voicevoxEngineSourceSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      kind: z.literal("include"),
-      directory: z.string().min(1),
-      transferMode: voicevoxEngineTransferModeSchema,
-    })
-    .strict(),
-  z.object({ kind: z.literal("exclude") }).strict(),
-]);
-type VoicevoxEngineSource = z.infer<typeof voicevoxEngineSourceSchema>;
 
 /** VOICEVOX ENGINEの配置設定を解決する。 */
 function resolveVoicevoxEngineSource(
