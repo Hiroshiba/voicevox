@@ -7,7 +7,6 @@ import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
-const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
 const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
 type VoicevoxEngineTransferMode = z.infer<
   typeof voicevoxEngineTransferModeSchema
@@ -29,13 +28,15 @@ function resolveVoicevoxEngineSource(
   value: string | undefined,
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
+  const defaultVoicevoxEngineDir = "../voicevox_engine/dist/run/";
+
   if (value == undefined) {
-    if (!existsSync(path.resolve(rootDir, DEFAULT_VOICEVOX_ENGINE_DIR))) {
+    if (!existsSync(path.resolve(rootDir, defaultVoicevoxEngineDir))) {
       return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
     }
     return voicevoxEngineSourceSchema.parse({
       kind: "include",
-      directory: DEFAULT_VOICEVOX_ENGINE_DIR,
+      directory: defaultVoicevoxEngineDir,
       transferMode: "copy",
     });
   }
