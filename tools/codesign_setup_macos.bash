@@ -34,15 +34,9 @@ if [ -z "$APPLE_API_KEY_BASE64" ]; then
     echo "APPLE_API_KEY_BASE64が空文字です" >&2
     exit 1
 fi
-if ! (
-    umask 077
-    printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY_PATH"
-); then
+umask 077
+if ! printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY_PATH"; then
     echo "App Store Connect APIキーの復元に失敗しました。" >&2
-    exit 1
-fi
-if ! chmod 600 "$APPLE_API_KEY_PATH"; then
-    echo "App Store Connect APIキーの一時ファイルの権限設定に失敗しました。" >&2
     exit 1
 fi
 
