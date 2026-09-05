@@ -16,28 +16,5 @@ fi
 
 APPLE_API_KEY_PATH="$(mktemp -d)/voicevox-apple-api-key.p8"
 
-cleanup() {
-    local status=$?
-    if ! rm -f "$APPLE_API_KEY_PATH"; then
-        echo "App Store Connect APIキーの一時ファイルを削除できませんでした。" >&2
-        if [ "$status" -eq 0 ]; then
-            status=1
-        fi
-    fi
-    if ! rmdir "${APPLE_API_KEY_PATH%/*}"; then
-        echo "App Store Connect APIキーの一時ディレクトリを削除できませんでした。" >&2
-        if [ "$status" -eq 0 ]; then
-            status=1
-        fi
-    fi
-    exit "$status"
-}
-trap cleanup EXIT
-
-if ! printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY_PATH"; then
-    echo "App Store Connect APIキーの復元に失敗しました。" >&2
-    exit 1
-fi
+printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY_PATH"
 echo "APPLE_API_KEY_PATH=$APPLE_API_KEY_PATH" >> "$GITHUB_ENV"
-
-trap - EXIT
