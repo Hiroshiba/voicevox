@@ -164,7 +164,6 @@ const builderOptions: ElectronBuilderConfiguration = {
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
   afterPack: (context) => afterPack(context, voicevoxEngineSource),
-  ...(isMacCodeSigning ? { forceCodeSigning: true } : {}),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -224,7 +223,7 @@ const builderOptions: ElectronBuilderConfiguration = {
       },
     ],
     // 正式署名しない場合はElectron Builderで署名せず、完成したアプリを後段でad hoc署名する。
-    ...(!isMacCodeSigning ? { identity: null } : {}),
+    ...(isMacCodeSigning ? { forceCodeSigning: true } : { identity: null }),
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
