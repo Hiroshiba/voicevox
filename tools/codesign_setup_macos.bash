@@ -26,7 +26,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ "${APPLE_API_KEY_BASE64+x}" != x ]; then
+if [ ! -v APPLE_API_KEY_BASE64 ]; then
     echo "APPLE_API_KEY_BASE64が未定義です" >&2
     exit 1
 fi
