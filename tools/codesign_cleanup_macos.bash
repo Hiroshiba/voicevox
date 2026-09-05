@@ -10,4 +10,6 @@ if [ "${APPLE_API_KEY_PATH+x}" != x ]; then
     exit 1
 fi
 
+APPLE_API_KEY_DIRECTORY="${APPLE_API_KEY_PATH%/*}"
 rm "$APPLE_API_KEY_PATH"
+rmdir "$APPLE_API_KEY_DIRECTORY"
