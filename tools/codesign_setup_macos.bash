@@ -6,7 +6,6 @@
 set -eu
 
 APPLE_API_KEY_PATH="$(mktemp -d)/voicevox-apple-api-key.p8"
-APPLE_API_KEY_DIRECTORY="${APPLE_API_KEY_PATH%/*}"
 
 cleanup() {
     local status=$?
@@ -16,7 +15,7 @@ cleanup() {
             status=1
         fi
     fi
-    if ! rmdir "$APPLE_API_KEY_DIRECTORY"; then
+    if ! rmdir "${APPLE_API_KEY_PATH%/*}"; then
         echo "App Store Connect APIキーの一時ディレクトリを削除できませんでした。" >&2
         if [ "$status" -eq 0 ]; then
             status=1

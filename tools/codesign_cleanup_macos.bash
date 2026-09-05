@@ -10,6 +10,5 @@ if [ ! -v APPLE_API_KEY_PATH ]; then
     exit 1
 fi
 
-APPLE_API_KEY_DIRECTORY="${APPLE_API_KEY_PATH%/*}"
 rm "$APPLE_API_KEY_PATH"
-rmdir "$APPLE_API_KEY_DIRECTORY"
+rmdir "${APPLE_API_KEY_PATH%/*}"
