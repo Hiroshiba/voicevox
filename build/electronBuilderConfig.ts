@@ -29,23 +29,21 @@ function resolveVoicevoxEngineSource(
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
   const defaultVoicevoxEngineDir = "../voicevox_engine/dist/run/";
+  const usesDefaultVoicevoxEngineDir = value == undefined || value === "";
+  const directory = usesDefaultVoicevoxEngineDir
+    ? defaultVoicevoxEngineDir
+    : value;
 
-  if (value == undefined) {
-    if (!existsSync(path.resolve(rootDir, defaultVoicevoxEngineDir))) {
-      return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
-    }
-    return voicevoxEngineSourceSchema.parse({
-      kind: "include",
-      directory: defaultVoicevoxEngineDir,
-      transferMode: "copy",
-    });
-  }
-  if (value === "") {
+  if (
+    usesDefaultVoicevoxEngineDir &&
+    !existsSync(path.resolve(rootDir, directory))
+  ) {
     return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
   }
+
   return voicevoxEngineSourceSchema.parse({
     kind: "include",
-    directory: value,
+    directory,
     transferMode,
   });
 }
