@@ -101,31 +101,6 @@ const builderOptions: ElectronBuilderConfiguration = {
       });
     }
   },
-  beforePack: (context) => {
-    if (
-      context.electronPlatformName !== "darwin" ||
-      voicevoxEngineSource.kind !== "include"
-    ) {
-      return;
-    }
-
-    const macosEngineSourceDir = path.resolve(
-      rootDir,
-      voicevoxEngineSource.directory,
-    );
-    if (!existsSync(macosEngineSourceDir)) {
-      throw new Error(
-        `VOICEVOX ENGINEの配置元が見つかりません: ${macosEngineSourceDir}`,
-      );
-    }
-
-    const macosEngineRunPath = path.join(macosEngineSourceDir, "run");
-    if (!existsSync(macosEngineRunPath)) {
-      throw new Error(
-        `VOICEVOX ENGINEのrunが見つかりません: ${macosEngineRunPath}`,
-      );
-    }
-  },
   directories: {
     output: "dist_electron",
     buildResources: "build",
