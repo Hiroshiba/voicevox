@@ -320,7 +320,8 @@ jobs:
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           MACOS_CODE_SIGNING: ${{ github.event.inputs.code_signing == 'true' && 'true' || 'false' }}
-          VOICEVOX_ENGINE_DIR: ${{ startsWith(matrix.os, 'macos-') && matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          VOICEVOX_ENGINE_TRANSFER_MODE: ${{ matrix.voicevox_engine_asset_name != null && 'move' || 'copy' }}
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
           APPLE_API_KEY: ${{ runner.temp }}/voicevox-apple-api-key.p8
@@ -353,11 +354,6 @@ jobs:
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
-      - name: Merge VOICEVOX ENGINE into prepackage/
-        if: matrix.voicevox_engine_asset_name != null && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
-        run: |
-          mv voicevox_engine/ prepackage/vv-engine/
-
       - name: Ad hoc code signing
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing != 'true'
         run: codesign --force --deep -s - prepackage/VOICEVOX.app
@@ -366,9 +362,6 @@ jobs:
         if: startsWith(matrix.artifact_name, 'linux-') # Linux
         run: |
           chmod +x "prepackage/${{ matrix.linux_executable_name }}"
-          if [ -d "prepackage/vv-engine" ]; then
-            chmod +x "prepackage/vv-engine/run"
-          fi
 
       - name: Create Linux tar.gz (without nvidia)
         if: startsWith(matrix.artifact_name, 'linux-') && !contains(matrix.artifact_name, 'nvidia')

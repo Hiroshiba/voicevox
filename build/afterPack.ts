@@ -1,8 +1,14 @@
 import path from "node:path";
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 
-type VoicevoxEngineSourceKind = "include" | "exclude";
+type VoicevoxEngineSource =
+  | {
+      kind: "include";
+      directory: string;
+      transferMode: "copy" | "move";
+    }
+  | { kind: "exclude" };
 
 function resolveMacosAppPaths(
   appOutDir: string,
@@ -41,16 +47,47 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
-function setVoicevoxEngineRunPermissions(
-  resourcesPath: string,
-  voicevoxEngineSourceKind: VoicevoxEngineSourceKind,
+function transferVoicevoxEngine(
+  context: AfterPackContext,
+  voicevoxEngineSource: VoicevoxEngineSource,
 ): void {
-  if (voicevoxEngineSourceKind === "include") {
-    const engineRunPath = path.join(resourcesPath, "vv-engine", "run");
-    if (!existsSync(engineRunPath)) {
-      throw new Error(`VOICEVOX ENGINEのrunが見つかりません: ${engineRunPath}`);
-    }
-    chmodSync(engineRunPath, 0o755);
+  if (voicevoxEngineSource.kind === "exclude") {
+    return;
+  }
+
+  const destinationRoot =
+    context.electronPlatformName === "darwin"
+      ? resolveMacosAppPaths(
+          context.appOutDir,
+          context.packager.appInfo.productFilename,
+        ).resourcesPath
+      : context.appOutDir;
+  const destination = path.join(destinationRoot, "vv-engine");
+  const source = path.resolve(
+    context.packager.projectDir,
+    voicevoxEngineSource.directory,
+  );
+  const executableName =
+    context.electronPlatformName === "win32" ? "run.exe" : "run";
+  const sourceExecutablePath = path.join(source, executableName);
+  if (!existsSync(sourceExecutablePath)) {
+    throw new Error(
+      `VOICEVOX ENGINEの${executableName}が見つかりません: ${sourceExecutablePath}`,
+    );
+  }
+
+  if (voicevoxEngineSource.transferMode === "move") {
+    renameSync(source, destination);
+  } else {
+    cpSync(source, destination, {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
+  }
+
+  const executablePath = path.join(destination, executableName);
+  if (context.electronPlatformName !== "win32") {
+    chmodSync(executablePath, 0o755);
   }
 }
 
@@ -63,8 +100,10 @@ function createMacosLocalizationDirectories(resourcesPath: string): void {
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
   context: AfterPackContext,
-  voicevoxEngineSourceKind: VoicevoxEngineSourceKind,
+  voicevoxEngineSource: VoicevoxEngineSource,
 ): void {
+  transferVoicevoxEngine(context, voicevoxEngineSource);
+
   if (context.electronPlatformName !== "darwin") {
     return;
   }
@@ -77,6 +116,5 @@ export default function afterPack(
     contentsPath,
     context.packager.appInfo.sanitizedProductName,
   );
-  setVoicevoxEngineRunPermissions(resourcesPath, voicevoxEngineSourceKind);
   createMacosLocalizationDirectories(resourcesPath);
 }

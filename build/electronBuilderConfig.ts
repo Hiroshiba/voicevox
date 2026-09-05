@@ -7,9 +7,17 @@ import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 
 const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
+const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
+type VoicevoxEngineTransferMode = z.infer<
+  typeof voicevoxEngineTransferModeSchema
+>;
 const voicevoxEngineSourceSchema = z.discriminatedUnion("kind", [
   z
-    .object({ kind: z.literal("include"), directory: z.string().min(1) })
+    .object({
+      kind: z.literal("include"),
+      directory: z.string().min(1),
+      transferMode: voicevoxEngineTransferModeSchema,
+    })
     .strict(),
   z.object({ kind: z.literal("exclude") }).strict(),
 ]);
@@ -18,11 +26,13 @@ type VoicevoxEngineSource = z.infer<typeof voicevoxEngineSourceSchema>;
 /** VOICEVOX ENGINEの配置設定を解決する。 */
 function resolveVoicevoxEngineSource(
   value: string | undefined,
+  transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
   if (value == undefined) {
     return voicevoxEngineSourceSchema.parse({
       kind: "include",
       directory: DEFAULT_VOICEVOX_ENGINE_DIR,
+      transferMode,
     });
   }
   if (value === "") {
@@ -31,6 +41,7 @@ function resolveVoicevoxEngineSource(
   return voicevoxEngineSourceSchema.parse({
     kind: "include",
     directory: value,
+    transferMode,
   });
 }
 
@@ -43,8 +54,12 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
+const voicevoxEngineTransferMode = voicevoxEngineTransferModeSchema
+  .default("copy")
+  .parse(process.env.VOICEVOX_ENGINE_TRANSFER_MODE);
 const voicevoxEngineSource = resolveVoicevoxEngineSource(
   process.env.VOICEVOX_ENGINE_DIR,
+  voicevoxEngineTransferMode,
 );
 
 // ${productName} Web Setup ${version}.${ext}
@@ -134,35 +149,17 @@ const builderOptions: ElectronBuilderConfiguration = {
       from: "build/README.txt",
       to: isMac ? "Resources/README.txt" : "README.txt",
     },
-    ...(!isMac && voicevoxEngineSource.kind === "include"
-      ? [
-          {
-            from: voicevoxEngineSource.directory,
-            to: path.join(extraFilePrefix, "vv-engine"),
-          },
-        ]
-      : []),
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
       to: extraFilePrefix + sevenZipFile,
     },
   ],
-  ...(isMac && voicevoxEngineSource.kind === "include"
-    ? {
-        extraResources: [
-          {
-            from: path.resolve(rootDir, voicevoxEngineSource.directory),
-            to: "vv-engine",
-          },
-        ],
-      }
-    : {}),
   // electron-builder installer
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
-  afterPack: (context) => afterPack(context, voicevoxEngineSource.kind),
+  afterPack: (context) => afterPack(context, voicevoxEngineSource),
   ...(isMacCodeSigning ? { forceCodeSigning: true } : {}),
   electronFuses: {
     runAsNode: false,
