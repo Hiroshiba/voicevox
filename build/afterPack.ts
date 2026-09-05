@@ -1,5 +1,5 @@
 import path from "node:path";
-import { chmodSync, cpSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 
 type VoicevoxEngineSource =
@@ -69,12 +69,6 @@ function transferVoicevoxEngine(
   );
   const executableName =
     context.electronPlatformName === "win32" ? "run.exe" : "run";
-  const sourceExecutablePath = path.join(source, executableName);
-  if (!existsSync(sourceExecutablePath)) {
-    throw new Error(
-      `VOICEVOX ENGINEの${executableName}が見つかりません: ${sourceExecutablePath}`,
-    );
-  }
 
   if (voicevoxEngineSource.transferMode === "move") {
     renameSync(source, destination);
