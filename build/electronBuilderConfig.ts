@@ -6,6 +6,7 @@ import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 
+const rootDir = path.join(import.meta.dirname, "..");
 const DEFAULT_VOICEVOX_ENGINE_DIR = "../voicevox_engine/dist/run/";
 const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
 type VoicevoxEngineTransferMode = z.infer<
@@ -29,10 +30,13 @@ function resolveVoicevoxEngineSource(
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
   if (value == undefined) {
+    if (!existsSync(path.resolve(rootDir, DEFAULT_VOICEVOX_ENGINE_DIR))) {
+      return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
+    }
     return voicevoxEngineSourceSchema.parse({
       kind: "include",
       directory: DEFAULT_VOICEVOX_ENGINE_DIR,
-      transferMode,
+      transferMode: "copy",
     });
   }
   if (value === "") {
@@ -45,7 +49,6 @@ function resolveVoicevoxEngineSource(
   });
 }
 
-const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
   path.join(rootDir, ".env.production.local"),
   path.join(rootDir, ".env.production"),
