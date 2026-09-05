@@ -91,8 +91,7 @@ const isMac = process.platform === "darwin";
 
 const isArm64 = process.arch === "arm64";
 
-const isMacCodeSigning =
-  isMac && process.env.CSC_LINK != undefined && process.env.CSC_LINK !== "";
+const isMacCodeSigning = isMac && (process.env.CSC_LINK ?? "").length > 0;
 
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
@@ -221,7 +220,7 @@ const builderOptions: ElectronBuilderConfiguration = {
       },
     ],
     // 正式署名しない場合はElectron Builderで署名せず、完成したアプリを後段でad hoc署名する。
-    ...(!isMacCodeSigning ? { identity: null } : {}),
+    identity: isMacCodeSigning ? undefined : null,
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
