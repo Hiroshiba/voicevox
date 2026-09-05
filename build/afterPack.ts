@@ -91,17 +91,7 @@ function createMacosLocalizationDirectories(resourcesPath: string): void {
   mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
 }
 
-/** Electronアプリのパッケージング後処理を行う。 */
-export default function afterPack(
-  context: AfterPackContext,
-  voicevoxEngineSource: VoicevoxEngineSource,
-): void {
-  transferVoicevoxEngine(context, voicevoxEngineSource);
-
-  if (context.electronPlatformName !== "darwin") {
-    return;
-  }
-
+function afterPackMacos(context: AfterPackContext): void {
   const { contentsPath, resourcesPath } = resolveMacosAppPaths(
     context.appOutDir,
     context.packager.appInfo.productFilename,
@@ -111,4 +101,16 @@ export default function afterPack(
     context.packager.appInfo.sanitizedProductName,
   );
   createMacosLocalizationDirectories(resourcesPath);
+}
+
+/** Electronアプリのパッケージング後処理を行う。 */
+export default function afterPack(
+  context: AfterPackContext,
+  voicevoxEngineSource: VoicevoxEngineSource,
+): void {
+  transferVoicevoxEngine(context, voicevoxEngineSource);
+
+  if (context.electronPlatformName === "darwin") {
+    afterPackMacos(context);
+  }
 }
