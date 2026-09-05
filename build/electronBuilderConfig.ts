@@ -224,7 +224,7 @@ const builderOptions: ElectronBuilderConfiguration = {
       },
     ],
     // 正式署名しない場合はElectron Builderで署名せず、完成したアプリを後段でad hoc署名する。
-    ...(isMacCodeSigning ? { notarize: true } : { identity: null }),
+    ...(!isMacCodeSigning ? { identity: null } : {}),
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
