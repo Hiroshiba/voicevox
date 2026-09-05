@@ -1,5 +1,12 @@
 import path from "node:path";
-import { chmodSync, cpSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 
 type VoicevoxEngineSource =
@@ -47,6 +54,29 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
+function moveDirectoryWithCrossDeviceFallback(
+  source: string,
+  destination: string,
+): void {
+  try {
+    renameSync(source, destination);
+  } catch (error) {
+    if (
+      typeof error !== "object" ||
+      error == undefined ||
+      !("code" in error) ||
+      error.code !== "EXDEV"
+    ) {
+      throw error;
+    }
+    cpSync(source, destination, {
+      recursive: true,
+      verbatimSymlinks: true,
+    });
+    rmSync(source, { recursive: true });
+  }
+}
+
 function transferVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
@@ -77,7 +107,7 @@ function transferVoicevoxEngine(
   }
 
   if (voicevoxEngineSource.transferMode === "move") {
-    renameSync(source, destination);
+    moveDirectoryWithCrossDeviceFallback(source, destination);
   } else {
     cpSync(source, destination, {
       recursive: true,
