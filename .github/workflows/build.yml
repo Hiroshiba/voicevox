@@ -310,7 +310,7 @@ jobs:
         run: bash tools/codesign_setup_macos.bash
         env:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
-          APPLE_API_KEY_PATH: ${{ runner.temp }}/voicevox-apple-api-key.p8
+          APPLE_API_KEY_PATH: /tmp/voicevox-apple-api-key.p8
 
       # Build result will be exported to ${{ matrix.artifact_path }}
       - name: Build Electron
@@ -324,7 +324,7 @@ jobs:
           VOICEVOX_ENGINE_TRANSFER_MODE: move
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
-          APPLE_API_KEY: ${{ runner.temp }}/voicevox-apple-api-key.p8
+          APPLE_API_KEY: /tmp/voicevox-apple-api-key.p8
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           # Windowsでは汎用CSC_LINKへのフォールバックを防ぐ。
@@ -348,7 +348,7 @@ jobs:
         if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
         run: bash tools/codesign_cleanup_macos.bash
         env:
-          APPLE_API_KEY_PATH: ${{ runner.temp }}/voicevox-apple-api-key.p8
+          APPLE_API_KEY_PATH: /tmp/voicevox-apple-api-key.p8
 
       - name: Rename Prepackage
         run: |
