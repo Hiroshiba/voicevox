@@ -81,6 +81,7 @@ const isMacCodeSigning = isMac && macosCodeSigningMode === "true";
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
 const extraFilePrefix = isMac ? "MacOS/" : "";
+const macosVoicevoxEnginePath = "vv-engine";
 
 const sevenZipFile = readdirSync(path.join(rootDir, "vendored", "7z")).find(
   // Windows: 7za.exe, Linux: 7zzs, macOS: 7zz
@@ -177,7 +178,7 @@ const builderOptions: ElectronBuilderConfiguration = {
         extraResources: [
           {
             from: path.resolve(rootDir, voicevoxEngineSource.directory),
-            to: "vv-engine",
+            to: macosVoicevoxEnginePath,
           },
         ],
       }
@@ -240,6 +241,8 @@ const builderOptions: ElectronBuilderConfiguration = {
   mac: {
     artifactName: MACOS_ARTIFACT_NAME || undefined,
     icon: "build/icons/icon-mac.png",
+    // NOTE: VOICEVOX ENGINE側の署名を維持するため、Electron Builderによる再署名から除外する。
+    signIgnore: `/Contents/Resources/${macosVoicevoxEnginePath}(?:/|$)`,
     category: "public.app-category.utilities",
     target: [
       {
