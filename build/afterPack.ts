@@ -10,6 +10,7 @@ type VoicevoxEngineSource =
     }
   | { kind: "exclude" };
 
+/** macOSアプリのContentsとResourcesのパスを解決する。 */
 function resolveMacosAppPaths(
   appOutDir: string,
   productFilename: string,
@@ -20,6 +21,7 @@ function resolveMacosAppPaths(
   return { contentsPath, resourcesPath };
 }
 
+/** macOSアプリのElectronヘルパーに実行権限を付与する。 */
 function setMacosHelperExecutablePermissions(
   contentsPath: string,
   sanitizedProductName: string,
@@ -47,6 +49,7 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
+/** Build Electronの成果物へVOICEVOX ENGINEを配置する。 */
 function transferVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
@@ -82,12 +85,14 @@ function transferVoicevoxEngine(
   }
 }
 
+/** macOSアプリのローカライズ用ディレクトリを作成する。 */
 function createMacosLocalizationDirectories(resourcesPath: string): void {
   // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
   mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
   mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
 }
 
+/** macOS固有のパッケージング後処理を行う。 */
 function afterPackMacos(context: AfterPackContext): void {
   const { contentsPath, resourcesPath } = resolveMacosAppPaths(
     context.appOutDir,
