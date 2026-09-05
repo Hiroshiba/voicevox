@@ -26,22 +26,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [ "${APPLE_P12_BASE64+x}" != x ]; then
-    echo "APPLE_P12_BASE64が未定義です" >&2
-    exit 1
-fi
-if [ -z "$APPLE_P12_BASE64" ]; then
-    echo "APPLE_P12_BASE64が空文字です" >&2
-    exit 1
-fi
-if [ "${APPLE_P12_PASSWORD+x}" != x ]; then
-    echo "APPLE_P12_PASSWORDが未定義です" >&2
-    exit 1
-fi
-if [ -z "$APPLE_P12_PASSWORD" ]; then
-    echo "APPLE_P12_PASSWORDが空文字です" >&2
-    exit 1
-fi
 if [ "${APPLE_API_KEY_BASE64+x}" != x ]; then
     echo "APPLE_API_KEY_BASE64が未定義です" >&2
     exit 1
@@ -50,23 +34,6 @@ if [ -z "$APPLE_API_KEY_BASE64" ]; then
     echo "APPLE_API_KEY_BASE64が空文字です" >&2
     exit 1
 fi
-if [ "${APPLE_API_KEY_ID+x}" != x ]; then
-    echo "APPLE_API_KEY_IDが未定義です" >&2
-    exit 1
-fi
-if [ -z "$APPLE_API_KEY_ID" ]; then
-    echo "APPLE_API_KEY_IDが空文字です" >&2
-    exit 1
-fi
-if [ "${APPLE_API_ISSUER+x}" != x ]; then
-    echo "APPLE_API_ISSUERが未定義です" >&2
-    exit 1
-fi
-if [ -z "$APPLE_API_ISSUER" ]; then
-    echo "APPLE_API_ISSUERが空文字です" >&2
-    exit 1
-fi
-
 if ! (
     umask 077
     printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY_PATH"
