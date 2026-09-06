@@ -4,9 +4,11 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
-import afterPack from "./afterPack";
-import { voicevoxEngineTransferModeSchema } from "./types";
-import type { VoicevoxEngineSource, VoicevoxEngineTransferMode } from "./types";
+import afterPack, { voicevoxEngineTransferModeSchema } from "./afterPack";
+import type {
+  VoicevoxEngineSource,
+  VoicevoxEngineTransferMode,
+} from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 

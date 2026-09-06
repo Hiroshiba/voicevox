@@ -1,7 +1,19 @@
 import path from "node:path";
 import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
-import type { VoicevoxEngineSource } from "./types";
+import { z } from "zod";
+
+export const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
+export type VoicevoxEngineTransferMode = z.infer<
+  typeof voicevoxEngineTransferModeSchema
+>;
+export type VoicevoxEngineSource =
+  | {
+      kind: "include";
+      directory: string;
+      transferMode: VoicevoxEngineTransferMode;
+    }
+  | { kind: "exclude" };
 
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
