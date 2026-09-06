@@ -103,6 +103,7 @@ export default function afterPack(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
 ): void {
+  // NOTE: Windowsで署名済みVOICEVOX ENGINEが再署名されるのを避けるため、extraFilesではなくafterPackで配置する。
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
   if (context.electronPlatformName === "darwin") {
