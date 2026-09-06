@@ -5,10 +5,7 @@ import type { Configuration as ElectronBuilderConfiguration } from "electron-bui
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
-import {
-  voicevoxEngineSourceSchema,
-  voicevoxEngineTransferModeSchema,
-} from "./types";
+import { voicevoxEngineTransferModeSchema } from "./types";
 import type { VoicevoxEngineSource, VoicevoxEngineTransferMode } from "./types";
 
 const rootDir = path.join(import.meta.dirname, "..");
@@ -19,14 +16,14 @@ function resolveVoicevoxEngineSource(
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
   if (value == undefined || value === "") {
-    return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
+    return { kind: "exclude" };
   }
 
-  return voicevoxEngineSourceSchema.parse({
+  return {
     kind: "include",
     directory: value,
     transferMode,
-  });
+  };
 }
 
 const dotenvPath = [
