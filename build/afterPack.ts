@@ -3,23 +3,24 @@ import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 import type { VoicevoxEngineSource } from "./types";
 
-/** macOSアプリのContentsとResourcesのパスを解決する。 */
-function resolveMacosAppPaths(
-  appOutDir: string,
-  productFilename: string,
-): { contentsPath: string; resourcesPath: string } {
-  const appPath = path.join(appOutDir, `${productFilename}.app`);
-  const contentsPath = path.join(appPath, "Contents");
-  const resourcesPath = path.join(contentsPath, "Resources");
-  return { contentsPath, resourcesPath };
+/** macOSアプリのContentsのパスを解決する。 */
+function resolveMacosContentsPath(context: AfterPackContext): string {
+  const appPath = path.join(
+    context.appOutDir,
+    `${context.packager.appInfo.productFilename}.app`,
+  );
+  return path.join(appPath, "Contents");
+}
+
+/** macOSアプリのResourcesのパスを解決する。 */
+function resolveMacosResourcesPath(context: AfterPackContext): string {
+  return path.join(resolveMacosContentsPath(context), "Resources");
 }
 
 /** macOSアプリのElectronヘルパーに実行権限を付与する。 */
-function setMacosHelperExecutablePermissions(
-  contentsPath: string,
-  sanitizedProductName: string,
-): void {
-  const helperPrefix = `${sanitizedProductName} Helper`;
+function setMacosHelperExecutablePermissions(context: AfterPackContext): void {
+  const contentsPath = resolveMacosContentsPath(context);
+  const helperPrefix = `${context.packager.appInfo.sanitizedProductName} Helper`;
   const helperNames = [
     `${helperPrefix} (GPU)`,
     `${helperPrefix} (Plugin)`,
@@ -42,12 +43,20 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
+/** macOSアプリのローカライズ用ディレクトリを作成する。 */
+function createMacosLocalizationDirectories(context: AfterPackContext): void {
+  const resourcesPath = resolveMacosResourcesPath(context);
+  // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
+  mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
+  mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
+}
+
 /** Linuxアプリ本体に実行権限を付与する。 */
-function setLinuxExecutablePermissions(
-  appOutDir: string,
-  productFilename: string,
-): void {
-  chmodSync(path.join(appOutDir, productFilename), 0o755);
+function setLinuxExecutablePermissions(context: AfterPackContext): void {
+  chmodSync(
+    path.join(context.appOutDir, context.packager.appInfo.productFilename),
+    0o755,
+  );
 }
 
 /** Electronアプリの出力先へVOICEVOX ENGINEを配置する。 */
@@ -61,10 +70,7 @@ function transferVoicevoxEngine(
 
   const destinationRoot =
     context.electronPlatformName === "darwin"
-      ? resolveMacosAppPaths(
-          context.appOutDir,
-          context.packager.appInfo.productFilename,
-        ).resourcesPath
+      ? resolveMacosResourcesPath(context)
       : context.appOutDir;
   const destination = path.join(destinationRoot, "vv-engine");
   const source = path.resolve(
@@ -86,26 +92,6 @@ function transferVoicevoxEngine(
   }
 }
 
-/** macOSアプリのローカライズ用ディレクトリを作成する。 */
-function createMacosLocalizationDirectories(resourcesPath: string): void {
-  // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
-  mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
-  mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
-}
-
-/** macOS固有のパッケージング後処理を行う。 */
-function afterPackMacos(context: AfterPackContext): void {
-  const { contentsPath, resourcesPath } = resolveMacosAppPaths(
-    context.appOutDir,
-    context.packager.appInfo.productFilename,
-  );
-  setMacosHelperExecutablePermissions(
-    contentsPath,
-    context.packager.appInfo.sanitizedProductName,
-  );
-  createMacosLocalizationDirectories(resourcesPath);
-}
-
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
   context: AfterPackContext,
@@ -114,12 +100,13 @@ export default function afterPack(
   // NOTE: エンジンをここで配置する理由は、Windowsの再署名を避けつつ、macOSのapp署名前に組み込むため
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
-  if (context.electronPlatformName === "linux") {
-    setLinuxExecutablePermissions(
-      context.appOutDir,
-      context.packager.appInfo.productFilename,
-    );
-  } else if (context.electronPlatformName === "darwin") {
-    afterPackMacos(context);
+  switch (context.electronPlatformName) {
+    case "linux":
+      setLinuxExecutablePermissions(context);
+      break;
+    case "darwin":
+      setMacosHelperExecutablePermissions(context);
+      createMacosLocalizationDirectories(context);
+      break;
   }
 }
