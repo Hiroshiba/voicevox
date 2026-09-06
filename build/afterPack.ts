@@ -3,14 +3,18 @@ import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 import { z } from "zod";
 
-export const voicevoxEngineTransferModeSchema = z.enum(["copy", "move"]);
+export const voicevoxEngineTransferModeSchema = z.enum([
+  "none",
+  "copy",
+  "move",
+]);
 export type VoicevoxEngineTransferMode = z.infer<
   typeof voicevoxEngineTransferModeSchema
 >;
 export type VoicevoxEngineSource =
   | { mode: "none" }
   | {
-      mode: VoicevoxEngineTransferMode;
+      mode: "copy" | "move";
       directory: string;
     };
 

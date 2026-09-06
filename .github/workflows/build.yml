@@ -314,7 +314,7 @@ jobs:
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && env.VOICEVOX_ENGINE_DIR || '' }}
-          VOICEVOX_ENGINE_TRANSFER_MODE: move
+          VOICEVOX_ENGINE_TRANSFER_MODE: ${{ matrix.voicevox_engine_asset_name != null && 'move' || 'none' }}
 
           # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false

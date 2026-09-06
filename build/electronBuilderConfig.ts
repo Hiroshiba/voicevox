@@ -21,6 +21,12 @@ function resolveVoicevoxEngineSource(
     return { mode: "none" };
   }
 
+  if (transferMode === "none") {
+    throw new Error(
+      "VOICEVOX_ENGINE_TRANSFER_MODEがnoneの場合はVOICEVOX_ENGINE_DIRを指定できません",
+    );
+  }
+
   return {
     mode: transferMode,
     directory: value,
