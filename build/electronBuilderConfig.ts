@@ -18,22 +18,13 @@ function resolveVoicevoxEngineSource(
   value: string | undefined,
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
-  const defaultVoicevoxEngineDir = "../voicevox_engine/dist/run/";
-  const usesDefaultVoicevoxEngineDir = value == undefined || value === "";
-  const directory = usesDefaultVoicevoxEngineDir
-    ? defaultVoicevoxEngineDir
-    : value;
-
-  if (
-    usesDefaultVoicevoxEngineDir &&
-    !existsSync(path.resolve(rootDir, directory))
-  ) {
+  if (value == undefined || value === "") {
     return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
   }
 
   return voicevoxEngineSourceSchema.parse({
     kind: "include",
-    directory,
+    directory: value,
     transferMode,
   });
 }
