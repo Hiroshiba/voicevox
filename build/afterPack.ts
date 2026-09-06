@@ -42,7 +42,7 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
-/** Build Electronの成果物へVOICEVOX ENGINEを配置する。 */
+/** Electronアプリの出力先へVOICEVOX ENGINEを配置する。 */
 function transferVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
