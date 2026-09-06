@@ -8,11 +8,8 @@ import afterPack from "./afterPack";
 import {
   voicevoxEngineSourceSchema,
   voicevoxEngineTransferModeSchema,
-} from "./voicevoxEngineSource";
-import type {
-  VoicevoxEngineSource,
-  VoicevoxEngineTransferMode,
-} from "./voicevoxEngineSource";
+} from "./types";
+import type { VoicevoxEngineSource, VoicevoxEngineTransferMode } from "./types";
 
 const rootDir = path.join(import.meta.dirname, "..");
 

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
-import type { VoicevoxEngineSource } from "./voicevoxEngineSource";
+import type { VoicevoxEngineSource } from "./types";
 
 /** macOSアプリのContentsとResourcesのパスを解決する。 */
 function resolveMacosAppPaths(
