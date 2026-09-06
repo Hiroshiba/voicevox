@@ -42,6 +42,14 @@ function setMacosHelperExecutablePermissions(
   }
 }
 
+/** Linuxアプリ本体に実行権限を付与する。 */
+function setLinuxExecutablePermissions(
+  appOutDir: string,
+  productFilename: string,
+): void {
+  chmodSync(path.join(appOutDir, productFilename), 0o755);
+}
+
 /** Electronアプリの出力先へVOICEVOX ENGINEを配置する。 */
 function transferVoicevoxEngine(
   context: AfterPackContext,
@@ -106,7 +114,12 @@ export default function afterPack(
   // NOTE: Windowsで署名済みVOICEVOX ENGINEが再署名されるのを避けるため、extraFilesではなくafterPackで配置する。
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
-  if (context.electronPlatformName === "darwin") {
+  if (context.electronPlatformName === "linux") {
+    setLinuxExecutablePermissions(
+      context.appOutDir,
+      context.packager.appInfo.productFilename,
+    );
+  } else if (context.electronPlatformName === "darwin") {
     afterPackMacos(context);
   }
 }
