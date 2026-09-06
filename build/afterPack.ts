@@ -73,10 +73,7 @@ function transferVoicevoxEngine(
       ? resolveMacosResourcesPath(context)
       : context.appOutDir;
   const destination = path.join(destinationRoot, "vv-engine");
-  const source = path.join(
-    context.packager.projectDir,
-    voicevoxEngineSource.directory,
-  );
+  const source = voicevoxEngineSource.directory;
   if (voicevoxEngineSource.transferMode === "move") {
     renameSync(source, destination);
   } else {

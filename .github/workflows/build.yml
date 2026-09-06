@@ -41,7 +41,7 @@ jobs:
     env:
       ELECTRON_CACHE: .cache/electron
       ELECTRON_BUILDER_CACHE: .cache/electron-builder
-      VOICEVOX_ENGINE_DOWNLOAD_DIR: voicevox_engine
+      VOICEVOX_ENGINE_DIR: ${{ github.workspace }}/voicevox_engine
       cache-version: v2
       # GNUコマンド
       sed: ${{ startsWith(matrix.os, 'macos-') && 'gsed' || 'sed' }}
@@ -257,7 +257,7 @@ jobs:
         uses: ./.github/actions/download-engine
         with:
           version: ${{ env.VOICEVOX_ENGINE_VERSION }}
-          dest: ${{ env.VOICEVOX_ENGINE_DOWNLOAD_DIR }}
+          dest: ${{ env.VOICEVOX_ENGINE_DIR }}
           target: ${{ matrix.voicevox_engine_asset_name }}
 
       - name: Create and replace software resources
@@ -313,7 +313,7 @@ jobs:
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && env.VOICEVOX_ENGINE_DOWNLOAD_DIR || '' }}
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && env.VOICEVOX_ENGINE_DIR || '' }}
           VOICEVOX_ENGINE_TRANSFER_MODE: move
 
           # https://github.com/electron-userland/electron-builder/issues/3179
