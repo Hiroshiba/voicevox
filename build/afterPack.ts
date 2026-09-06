@@ -111,7 +111,7 @@ export default function afterPack(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
 ): void {
-  // NOTE: Windowsで署名済みVOICEVOX ENGINEが再署名されるのを避けるため、extraFilesではなくafterPackで配置する。
+  // NOTE: エンジンをここで配置する理由は、Windowsの再署名を避けつつ、macOSのapp署名前に組み込むため
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
   if (context.electronPlatformName === "linux") {
