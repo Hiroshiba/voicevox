@@ -18,7 +18,7 @@ export type VoicevoxEngineSource =
 export default function afterPack(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
-): void {
+) {
   // NOTE: エンジンをここで配置する理由は、Windowsの再署名を避けつつ、macOSのapp署名前に組み込むため
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
@@ -37,7 +37,7 @@ export default function afterPack(
 function transferVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
-): void {
+) {
   if (voicevoxEngineSource.mode === "none") {
     return;
   }
@@ -64,7 +64,7 @@ function transferVoicevoxEngine(
 }
 
 /** Linuxアプリ本体に実行権限を付与する。 */
-function setLinuxExecutablePermissions(context: AfterPackContext): void {
+function setLinuxExecutablePermissions(context: AfterPackContext) {
   chmodSync(
     path.join(context.appOutDir, context.packager.appInfo.productFilename),
     0o755,
@@ -72,7 +72,7 @@ function setLinuxExecutablePermissions(context: AfterPackContext): void {
 }
 
 /** macOSアプリのElectronヘルパーに実行権限を付与する。 */
-function setMacosHelperExecutablePermissions(context: AfterPackContext): void {
+function setMacosHelperExecutablePermissions(context: AfterPackContext) {
   const contentsPath = resolveMacosContentsPath(context);
   const helperPrefix = `${context.packager.appInfo.sanitizedProductName} Helper`;
   const helperNames = [
@@ -98,7 +98,7 @@ function setMacosHelperExecutablePermissions(context: AfterPackContext): void {
 }
 
 /** macOSアプリのローカライズ用ディレクトリを作成する。 */
-function createMacosLocalizationDirectories(context: AfterPackContext): void {
+function createMacosLocalizationDirectories(context: AfterPackContext) {
   const resourcesPath = resolveMacosResourcesPath(context);
   // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
   mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
