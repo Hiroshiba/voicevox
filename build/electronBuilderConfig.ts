@@ -210,7 +210,8 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    // 正式署名しない場合はElectron Builderで署名せず、完成したアプリを後段でad hoc署名する。
+    // 正式署名時はundefinedで署名Identityを未指定にし、Electron Builderに自動検出させる。
+    // 正式署名しない場合はnullで署名を無効化し、完成したアプリを後段でad hoc署名する。
     identity: isMacCodeSigning ? undefined : null,
   },
   dmg: {
