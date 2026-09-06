@@ -27,9 +27,6 @@ export default function afterPack(
   transferVoicevoxEngine(context, voicevoxEngineSource);
 
   switch (context.electronPlatformName) {
-    case "linux":
-      setLinuxExecutablePermissions(context);
-      break;
     case "darwin":
       setMacosHelperExecutablePermissions(context);
       createMacosLocalizationDirectories(context);
@@ -65,14 +62,6 @@ function transferVoicevoxEngine(
     const executablePath = path.join(destination, "run");
     chmodSync(executablePath, 0o755);
   }
-}
-
-/** Linuxアプリ本体に実行権限を付与する。 */
-function setLinuxExecutablePermissions(context: AfterPackContext) {
-  chmodSync(
-    path.join(context.appOutDir, context.packager.appInfo.productFilename),
-    0o755,
-  );
 }
 
 /** macOSアプリのElectronヘルパーに実行権限を付与する。 */
