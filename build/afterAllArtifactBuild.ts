@@ -1,5 +1,13 @@
-import type { BuildResult } from "electron-builder";
-import { afterNsisWebArtifactBuild } from "./afterNsisWebArtifactBuild";
+import type { BuildResult, Target } from "electron-builder";
+import splitNsisArchive from "./splitNsisArchive";
+import { parseInstallerMode } from "./installerMode";
+
+/** NSIS Web 成果物をエンジンモードに応じて処理する。 */
+async function afterNsisWebArtifactBuild(target: Target): Promise<void> {
+  if (parseInstallerMode(process.env.VOICEVOX_ENGINE_MODE) === "embed-engine") {
+    await splitNsisArchive(target);
+  }
+}
 
 export default async function afterAllArtifactBuild(buildResult: BuildResult) {
   for (const [platform, targets] of buildResult.platformToTargets.entries()) {
