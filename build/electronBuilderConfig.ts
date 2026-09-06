@@ -4,8 +4,40 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
+import afterPack from "./afterPack";
+import {
+  voicevoxEngineSourceSchema,
+  voicevoxEngineTransferModeSchema,
+} from "./types";
+import type { VoicevoxEngineSource, VoicevoxEngineTransferMode } from "./types";
 
 const rootDir = path.join(import.meta.dirname, "..");
+
+/** VOICEVOX ENGINEの配置設定を解決する。 */
+function resolveVoicevoxEngineSource(
+  value: string | undefined,
+  transferMode: VoicevoxEngineTransferMode,
+): VoicevoxEngineSource {
+  const defaultVoicevoxEngineDir = "../voicevox_engine/dist/run/";
+  const usesDefaultVoicevoxEngineDir = value == undefined || value === "";
+  const directory = usesDefaultVoicevoxEngineDir
+    ? defaultVoicevoxEngineDir
+    : value;
+
+  if (
+    usesDefaultVoicevoxEngineDir &&
+    !existsSync(path.resolve(rootDir, directory))
+  ) {
+    return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
+  }
+
+  return voicevoxEngineSourceSchema.parse({
+    kind: "include",
+    directory,
+    transferMode,
+  });
+}
+
 const dotenvPath = [
   path.join(rootDir, ".env.production.local"),
   path.join(rootDir, ".env.production"),
@@ -14,8 +46,13 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const VOICEVOX_ENGINE_DIR =
-  process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
+const voicevoxEngineTransferMode = voicevoxEngineTransferModeSchema
+  .default("copy")
+  .parse(process.env.VOICEVOX_ENGINE_TRANSFER_MODE);
+const voicevoxEngineSource = resolveVoicevoxEngineSource(
+  process.env.VOICEVOX_ENGINE_DIR,
+  voicevoxEngineTransferMode,
+);
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -101,10 +138,6 @@ const builderOptions: ElectronBuilderConfiguration = {
       to: extraFilePrefix + "README.txt",
     },
     {
-      from: VOICEVOX_ENGINE_DIR,
-      to: path.join(extraFilePrefix, "vv-engine"),
-    },
-    {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
       to: extraFilePrefix + sevenZipFile,
     },
@@ -114,6 +147,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
+  afterPack: (context) => afterPack(context, voicevoxEngineSource),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
