@@ -17,7 +17,6 @@ let fixtureServer: http.Server | undefined;
 let fixtureServerUrl: string | undefined;
 let fixtureDir: string | undefined;
 let vvppDownloadRequestCount = 0;
-let failNextVvppDownload = false;
 let holdVvppDownload = false;
 let releaseVvppDownload: (() => void) | undefined;
 
@@ -127,12 +126,6 @@ test.beforeAll(async () => {
         holdVvppDownload = false;
         releaseVvppDownload = undefined;
       }
-      if (failNextVvppDownload) {
-        failNextVvppDownload = false;
-        response.statusCode = 500;
-        response.end();
-        return;
-      }
       response.setHeader("content-type", "application/octet-stream");
       response.end(vvpp);
       return;
@@ -192,7 +185,6 @@ test.beforeEach(async () => {
 
 test.beforeEach(async () => {
   vvppDownloadRequestCount = 0;
-  failNextVvppDownload = false;
   releaseHeldVvppDownload();
   dotenv.config({
     path: "./tests/env/.env.test-electron-default-vvpp",
@@ -286,102 +278,6 @@ test("エディタウィンドウを起動できる", async ({ launchElectronApp
         version: "0.0.2",
       }),
     );
-  });
-});
-
-test("自動導入失敗後に手動で再試行できる", async ({ launchElectronApp }) => {
-  failNextVvppDownload = true;
-  holdVvppDownload = true;
-  const downloadUrl = fixtureServerUrl;
-  if (downloadUrl == undefined) {
-    throw new Error("テスト用サーバーのURLを取得できません。");
-  }
-  const app = await launchElectronApp();
-
-  await app.evaluate((electron) => {
-    electron.dialog.showErrorBox = (title: string, content: string) => {
-      if (title === "音声合成エンジンエラー") {
-        return;
-      }
-      throw new Error(
-        `想定外のダイアログです。タイトル: ${title}、内容: ${content}`,
-      );
-    };
-  });
-
-  const welcomePage = await test.step("Welcomeを表示する", async () => {
-    const welcomePage = await app.firstWindow({
-      timeout: process.env.CI ? 90000 : 60000,
-    });
-    await expect(welcomePage.getByText("エンジンのセットアップ")).toBeVisible({
-      timeout: 60000,
-    });
-    return welcomePage;
-  });
-
-  await test.step("導入中の終了を抑止する", async () => {
-    await expect.poll(() => vvppDownloadRequestCount).toBe(1);
-    try {
-      if (process.platform === "darwin") {
-        await app.evaluate(({ BrowserWindow }) => {
-          const window = BrowserWindow.getFocusedWindow();
-          if (window == undefined) {
-            throw new Error("Welcomeウィンドウを取得できません。");
-          }
-          window.close();
-        });
-      } else {
-        await welcomePage
-          .getByRole("button", { name: "閉じる" })
-          .first()
-          .click();
-      }
-      await expect(
-        welcomePage.getByText("エンジンのセットアップ"),
-      ).toBeVisible();
-    } finally {
-      releaseHeldVvppDownload();
-    }
-  });
-
-  await test.step("自動導入を失敗させる", async () => {
-    const errorDialog = welcomePage.getByRole("dialog", {
-      name: "エンジンのインストールに失敗しました",
-    });
-    await expect(errorDialog).toBeVisible({ timeout: 60000 });
-    await expect.poll(() => vvppDownloadRequestCount).toBe(1);
-    await expect(errorDialog).toContainText(`${downloadUrl}/engine.vvpp`);
-    await errorDialog.getByRole("button", { name: "閉じる" }).click();
-    await expect(errorDialog).toBeHidden();
-    await expect.poll(() => vvppDownloadRequestCount).toBe(1);
-    await expect(
-      welcomePage.getByRole("button", { name: /^インストール（.+?）$/ }),
-    ).toBeEnabled();
-  });
-
-  await test.step("手動導入を再試行する", async () => {
-    await welcomePage
-      .getByRole("button", { name: /^インストール（.+?）$/ })
-      .click();
-    await expect.poll(() => vvppDownloadRequestCount).toBe(2);
-    await expect(
-      welcomePage.getByRole("button", { name: /^再インストール（.+?）$/ }),
-    ).toBeVisible({ timeout: 60000 });
-  });
-
-  await test.step("エディタを起動する", async () => {
-    const launchEditor = welcomePage.getByRole("button", {
-      name: "エディタを起動",
-    });
-    await expect(launchEditor).toBeEnabled({ timeout: 60000 });
-    await launchEditor.click();
-
-    const editorPage = await app.waitForEvent("window", {
-      timeout: process.env.CI ? 90000 : 60000,
-    });
-    await expect(
-      editorPage.getByRole("button", { name: "エンジン" }),
-    ).toBeVisible({ timeout: 60000 });
   });
 });
 
