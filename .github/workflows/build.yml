@@ -41,7 +41,7 @@ jobs:
     env:
       ELECTRON_CACHE: .cache/electron
       ELECTRON_BUILDER_CACHE: .cache/electron-builder
-      VOICEVOX_ENGINE_DOWNLOAD_DIR: ${{ github.workspace }}/voicevox_engine
+      VOICEVOX_ENGINE_DOWNLOAD_DIR: voicevox_engine
       cache-version: v2
       # GNUコマンド
       sed: ${{ startsWith(matrix.os, 'macos-') && 'gsed' || 'sed' }}
