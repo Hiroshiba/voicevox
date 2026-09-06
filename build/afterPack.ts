@@ -8,12 +8,11 @@ export type VoicevoxEngineTransferMode = z.infer<
   typeof voicevoxEngineTransferModeSchema
 >;
 export type VoicevoxEngineSource =
+  | { mode: "none" }
   | {
-      kind: "include";
+      mode: VoicevoxEngineTransferMode;
       directory: string;
-      transferMode: VoicevoxEngineTransferMode;
-    }
-  | { kind: "exclude" };
+    };
 
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
@@ -39,7 +38,7 @@ function transferVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEngineSource: VoicevoxEngineSource,
 ): void {
-  if (voicevoxEngineSource.kind === "exclude") {
+  if (voicevoxEngineSource.mode === "none") {
     return;
   }
 
@@ -49,7 +48,7 @@ function transferVoicevoxEngine(
       : context.appOutDir;
   const destination = path.join(destinationRoot, "vv-engine");
   const source = voicevoxEngineSource.directory;
-  if (voicevoxEngineSource.transferMode === "move") {
+  if (voicevoxEngineSource.mode === "move") {
     renameSync(source, destination);
   } else {
     cpSync(source, destination, {

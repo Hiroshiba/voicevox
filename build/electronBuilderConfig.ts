@@ -18,13 +18,12 @@ function resolveVoicevoxEngineSource(
   transferMode: VoicevoxEngineTransferMode,
 ): VoicevoxEngineSource {
   if (value == undefined || value === "") {
-    return { kind: "exclude" };
+    return { mode: "none" };
   }
 
   return {
-    kind: "include",
+    mode: transferMode,
     directory: value,
-    transferMode,
   };
 }
 
