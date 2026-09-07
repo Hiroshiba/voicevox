@@ -16,7 +16,7 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineSource = resolveVoicevoxEngineSource(
+const voicevoxEngineSource = parseVoicevoxEnginePlacementFromEnv(
   process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
   process.env.VOICEVOX_ENGINE_DIR,
 );
@@ -180,8 +180,8 @@ const builderOptions: ElectronBuilderConfiguration = {
   },
 };
 
-/** VOICEVOX ENGINEの配置設定を解決する。 */
-function resolveVoicevoxEngineSource(
+/** 環境変数からVOICEVOX ENGINEの配置設定を得る */
+function parseVoicevoxEnginePlacementFromEnv(
   modeValue: string | undefined,
   directory: string | undefined,
 ): VoicevoxEngineSource {
