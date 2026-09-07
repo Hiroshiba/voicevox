@@ -1,21 +1,10 @@
 import path from "node:path";
 import { chmodSync, cpSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
-import { z } from "zod";
 
-export const voicevoxEngineSourceSchema = z
-  .union([
-    z.object({
-      mode: z.enum(["copy", "move"]).default("copy"),
-      directory: z.string().min(1),
-    }),
-    z.object({
-      mode: z.literal("none").default("none"),
-      directory: z.literal("").optional(),
-    }),
-  ])
-  .transform((value) => (value.mode === "none" ? { mode: value.mode } : value));
-type VoicevoxEngineSource = z.infer<typeof voicevoxEngineSourceSchema>;
+export type VoicevoxEngineSource =
+  | { mode: "none" }
+  | { mode: "copy" | "move"; directory: string };
 
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(

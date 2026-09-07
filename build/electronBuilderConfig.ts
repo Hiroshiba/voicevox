@@ -4,7 +4,8 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
-import afterPack, { voicevoxEngineSourceSchema } from "./afterPack";
+import afterPack from "./afterPack";
+import type { VoicevoxEngineSource } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -15,10 +16,10 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineSource = voicevoxEngineSourceSchema.parse({
-  mode: process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
-  directory: process.env.VOICEVOX_ENGINE_DIR,
-});
+const voicevoxEngineSource = resolveVoicevoxEngineSource(
+  process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
+  process.env.VOICEVOX_ENGINE_DIR,
+);
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -178,5 +179,23 @@ const builderOptions: ElectronBuilderConfiguration = {
     icon: "build/icons/icon-dmg.icns",
   },
 };
+
+/** VOICEVOX ENGINEの配置設定を解決する。 */
+function resolveVoicevoxEngineSource(
+  modeValue: string | undefined,
+  directory: string | undefined,
+): VoicevoxEngineSource {
+  const isDirectorySpecified = directory != undefined && directory !== "";
+  const mode = modeValue ?? (isDirectorySpecified ? "copy" : "none");
+
+  if (mode === "none" && !isDirectorySpecified) {
+    return { mode };
+  }
+  if ((mode === "copy" || mode === "move") && isDirectorySpecified) {
+    return { mode, directory };
+  }
+
+  throw new Error("VOICEVOX ENGINEの配置設定が不正です");
+}
 
 export default builderOptions;
