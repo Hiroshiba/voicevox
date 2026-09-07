@@ -7,7 +7,8 @@ const { VOICEVOX_EXECUTABLE_PATH: executablePath } = z
     VOICEVOX_EXECUTABLE_PATH: z.string().min(1),
   })
   .parse(process.env);
-const timeout = 10 * 60 * 1000;
+const timeout = 60 * 1000;
+const engineInstallTimeout = 8 * 60 * 1000;
 
 test("標準版でエンジンをインストールしてエディタを起動できる", async () => {
   const app = await test.step("VOICEVOXを起動する", async () => {
@@ -44,7 +45,7 @@ test("標準版でエンジンをインストールしてエディタを起動�
       const reinstall = welcomePage.getByRole("button", {
         name: /再インストール（.+?）/,
       });
-      await expect(reinstall).toBeVisible();
+      await expect(reinstall).toBeVisible({ timeout: engineInstallTimeout });
     });
 
     const editorPage = await test.step("エディタを起動する", async () => {
