@@ -2,35 +2,35 @@ import path from "node:path";
 import { chmodSync, cpSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 
-export type VoicevoxEngineSource =
+export type VoicevoxEnginePlacement =
   | { mode: "none" }
   | { mode: "copy" | "move"; directory: string };
 
-/** Electronアプリのパッケージング後処理を行う。 */
+/** Electronアプリのパッケージング後処理を行う */
 export default function afterPack(
   context: AfterPackContext,
-  voicevoxEngineSource: VoicevoxEngineSource,
+  voicevoxEnginePlacement: VoicevoxEnginePlacement,
 ) {
   // NOTE: エンジンをここで配置する理由は、Windowsの再署名を避けつつ、macOSのapp署名前に組み込むため
-  transferVoicevoxEngine(context, voicevoxEngineSource);
+  placeVoicevoxEngine(context, voicevoxEnginePlacement);
 }
 
-/** Electronアプリの出力先へVOICEVOX ENGINEを配置する。 */
-function transferVoicevoxEngine(
+/** Electronアプリの出力先へVOICEVOX ENGINEを配置する */
+function placeVoicevoxEngine(
   context: AfterPackContext,
-  voicevoxEngineSource: VoicevoxEngineSource,
+  voicevoxEnginePlacement: VoicevoxEnginePlacement,
 ) {
-  if (voicevoxEngineSource.mode === "none") {
+  if (voicevoxEnginePlacement.mode === "none") {
     return;
   }
 
   const destinationRoot =
     context.electronPlatformName === "darwin"
-      ? resolveMacosResourcesPath(context)
+      ? getMacosResourcesPath(context)
       : context.appOutDir;
   const destination = path.join(destinationRoot, "vv-engine");
-  const source = voicevoxEngineSource.directory;
-  if (voicevoxEngineSource.mode === "move") {
+  const source = voicevoxEnginePlacement.directory;
+  if (voicevoxEnginePlacement.mode === "move") {
     renameSync(source, destination);
   } else {
     cpSync(source, destination, { recursive: true, verbatimSymlinks: true });
@@ -42,13 +42,13 @@ function transferVoicevoxEngine(
   }
 }
 
-/** macOSアプリのResourcesのパスを解決する。 */
-function resolveMacosResourcesPath(context: AfterPackContext): string {
-  return path.join(resolveMacosContentsPath(context), "Resources");
+/** macOSアプリのResourcesのパスを得る */
+function getMacosResourcesPath(context: AfterPackContext): string {
+  return path.join(getMacosContentsPath(context), "Resources");
 }
 
-/** macOSアプリのContentsのパスを解決する。 */
-function resolveMacosContentsPath(context: AfterPackContext): string {
+/** macOSアプリのContentsのパスを得る */
+function getMacosContentsPath(context: AfterPackContext): string {
   const appPath = path.join(
     context.appOutDir,
     `${context.packager.appInfo.productFilename}.app`,

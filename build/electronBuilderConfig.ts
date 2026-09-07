@@ -5,7 +5,7 @@ import type { Configuration as ElectronBuilderConfiguration } from "electron-bui
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
-import type { VoicevoxEngineSource } from "./afterPack";
+import type { VoicevoxEnginePlacement } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -16,7 +16,7 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineSource = parseVoicevoxEnginePlacementFromEnv(
+const voicevoxEnginePlacement = parseVoicevoxEnginePlacementFromEnv(
   process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
   process.env.VOICEVOX_ENGINE_DIR,
 );
@@ -114,7 +114,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
-  afterPack: (context) => afterPack(context, voicevoxEngineSource),
+  afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -184,14 +184,14 @@ const builderOptions: ElectronBuilderConfiguration = {
 function parseVoicevoxEnginePlacementFromEnv(
   modeValue: string | undefined,
   directory: string | undefined,
-): VoicevoxEngineSource {
-  const isDirectorySpecified = directory != undefined && directory !== "";
-  const mode = modeValue ?? (isDirectorySpecified ? "copy" : "none");
+): VoicevoxEnginePlacement {
+  const hasDirectoryValue = directory != undefined && directory !== "";
+  const mode = modeValue ?? (hasDirectoryValue ? "copy" : "none");
 
-  if (mode === "none" && !isDirectorySpecified) {
+  if (mode === "none" && !hasDirectoryValue) {
     return { mode };
   }
-  if ((mode === "copy" || mode === "move") && isDirectorySpecified) {
+  if ((mode === "copy" || mode === "move") && hasDirectoryValue) {
     return { mode, directory };
   }
 
