@@ -563,3 +563,98 @@ jobs:
             dist_electron/nsis-web/out/*.7z.*
             dist_electron/nsis-web/*.exe
           target_commitish: ${{ github.sha }}
+
+  installer-test:
+    needs: build-and-upload
+    if: github.event.inputs.version != ''
+    permissions:
+      contents: read
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            installer_file: VOICEVOX.linux-appimage.${{ github.event.inputs.version }}.sh
+            executable: VOICEVOX.AppImage
+          - os: macos-15-intel
+            installer_file: VOICEVOX.${{ github.event.inputs.version }}-x64.dmg
+            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
+          - os: macos-14
+            installer_file: VOICEVOX.${{ github.event.inputs.version }}-arm64.dmg
+            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
+          - os: windows-2022
+            installer_file: VOICEVOX.Web.Setup.${{ github.event.inputs.version }}.exe
+            executable: VOICEVOX.exe
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Setup installer paths
+        shell: bash
+        run: |
+          {
+            echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
+            echo "APP_DIR=${{ runner.temp }}/voicevox"
+          } >> "$GITHUB_ENV"
+
+      - name: Install FUSE and xvfb on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 xvfb
+
+      - name: Download installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "${INSTALLER_DIR}"
+          gh release download "${{ github.event.inputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --dir "${INSTALLER_DIR}" \
+            --pattern "${{ matrix.installer_file }}"
+
+      - name: Install Linux application
+        if: runner.os == 'Linux'
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}" \
+            FORCE_INSTALL=1 \
+            bash "${INSTALLER_DIR}/${{ matrix.installer_file }}"
+
+      - name: Install macOS application
+        if: runner.os == 'macOS'
+        env:
+          DMG_MOUNT_POINT: ${{ runner.temp }}/voicevox-dmg
+        run: |
+          mkdir -p "${DMG_MOUNT_POINT}" "${APP_DIR}"
+          hdiutil attach -nobrowse -readonly \
+            -mountpoint "${DMG_MOUNT_POINT}" \
+            "${INSTALLER_DIR}/${{ matrix.installer_file }}"
+          ditto "${DMG_MOUNT_POINT}/VOICEVOX.app" "${APP_DIR}/VOICEVOX.app"
+          hdiutil detach "${DMG_MOUNT_POINT}"
+
+      - name: Install Windows application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installerPath = Join-Path $env:INSTALLER_DIR "${{ matrix.installer_file }}"
+          New-Item -ItemType Directory -Force -Path $env:APP_DIR | Out-Null
+          $process = Start-Process -FilePath $installerPath `
+            -ArgumentList @('/S', "/D=$env:APP_DIR") `
+            -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
+          }
+
+      - name: Run installer test
+        env:
+          VOICEVOX_EXECUTABLE_PATH: ${{ runner.temp }}/voicevox/${{ matrix.executable }}
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            xvfb-run --auto-servernum pnpm exec playwright test --config playwright.installed.config.ts
+          else
+            pnpm exec playwright test --config playwright.installed.config.ts
+          fi
