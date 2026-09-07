@@ -35,7 +35,6 @@ defaults:
 
 jobs:
   build-and-upload:
-    if: false
     environment: ${{ github.event.inputs.code_signing == 'true' && 'code_signing' || '' }} # コード署名用のenvironment（false時の挙動は2022年7月10日時点で未定義動作）
     permissions:
       contents: write
@@ -473,7 +472,7 @@ jobs:
 
   installer-test:
     needs: build-and-upload
-    if: always() && github.event.inputs.version != ''
+    if: github.event.inputs.version != ''
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
@@ -482,6 +481,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - os: ubuntu-22.04
+            installer_file: VOICEVOX.linux-appimage.${{ github.event.inputs.version }}.sh
+            executable: VOICEVOX.AppImage
+          - os: macos-15-intel
+            installer_file: VOICEVOX.${{ github.event.inputs.version }}-x64.dmg
+            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
+          - os: macos-14
+            installer_file: VOICEVOX.${{ github.event.inputs.version }}-arm64.dmg
+            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
           - os: windows-2022
             installer_file: VOICEVOX.Web.Setup.${{ github.event.inputs.version }}.exe
             executable: VOICEVOX.exe
@@ -559,17 +567,9 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
           }
-          Get-ChildItem -Path $env:APP_DIR -Filter *.exe -Recurse
-          if (Test-Path "$env:LOCALAPPDATA/Programs/VOICEVOX") {
-            Get-ChildItem -Path "$env:LOCALAPPDATA/Programs/VOICEVOX" -Filter *.exe -Recurse
-          }
-          if (Test-Path "$env:ProgramFiles/VOICEVOX") {
-            Get-ChildItem -Path "$env:ProgramFiles/VOICEVOX" -Filter *.exe -Recurse
-          }
 
       - name: Run installer test
         env:
-          DEBUG: pw:browser*,pw:api
           VOICEVOX_EXECUTABLE_PATH: ${{ runner.temp }}/voicevox/${{ matrix.executable }}
         run: |
           if [[ "${{ runner.os }}" == "Linux" ]]; then
