@@ -35,6 +35,7 @@ defaults:
 
 jobs:
   build-and-upload:
+    if: false
     environment: ${{ github.event.inputs.code_signing == 'true' && 'code_signing' || '' }} # コード署名用のenvironment（false時の挙動は2022年7月10日時点で未定義動作）
     permissions:
       contents: write
@@ -472,7 +473,7 @@ jobs:
 
   installer-test:
     needs: build-and-upload
-    if: github.event.inputs.version != ''
+    if: always() && github.event.inputs.version != ''
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
@@ -570,6 +571,7 @@ jobs:
 
       - name: Run installer test
         env:
+          DEBUG: pw:browser*,pw:api
           VOICEVOX_EXECUTABLE_PATH: ${{ runner.temp }}/voicevox/${{ matrix.executable }}
         run: |
           if [[ "${{ runner.os }}" == "Linux" ]]; then
