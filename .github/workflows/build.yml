@@ -568,6 +568,7 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
           }
+          Get-ChildItem -Path $env:APP_DIR -Filter *.exe
 
       - name: Run installer test
         env:
