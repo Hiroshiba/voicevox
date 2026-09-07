@@ -25,7 +25,6 @@ export default function afterPack(
 
   switch (context.electronPlatformName) {
     case "darwin":
-      setMacosHelperExecutablePermissions(context);
       createMacosLocalizationDirectories(context);
       break;
   }
@@ -55,32 +54,6 @@ function transferVoicevoxEngine(
   if (context.electronPlatformName !== "win32") {
     const executablePath = path.join(destination, "run");
     chmodSync(executablePath, 0o755);
-  }
-}
-
-/** macOSアプリのElectronヘルパーに実行権限を付与する。 */
-function setMacosHelperExecutablePermissions(context: AfterPackContext) {
-  const contentsPath = resolveMacosContentsPath(context);
-  const helperPrefix = `${context.packager.appInfo.sanitizedProductName} Helper`;
-  const helperNames = [
-    `${helperPrefix} (GPU)`,
-    `${helperPrefix} (Plugin)`,
-    `${helperPrefix} (Renderer)`,
-    helperPrefix,
-  ];
-
-  for (const helperName of helperNames) {
-    chmodSync(
-      path.join(
-        contentsPath,
-        "Frameworks",
-        `${helperName}.app`,
-        "Contents",
-        "MacOS",
-        helperName,
-      ),
-      0o755,
-    );
   }
 }
 
