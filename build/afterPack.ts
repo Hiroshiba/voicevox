@@ -1,5 +1,5 @@
 import path from "node:path";
-import { chmodSync, cpSync, mkdirSync, renameSync } from "node:fs";
+import { chmodSync, cpSync, renameSync } from "node:fs";
 import type { AfterPackContext } from "electron-builder";
 import { z } from "zod";
 
@@ -22,12 +22,6 @@ export default function afterPack(
 ) {
   // NOTE: エンジンをここで配置する理由は、Windowsの再署名を避けつつ、macOSのapp署名前に組み込むため
   transferVoicevoxEngine(context, voicevoxEngineSource);
-
-  switch (context.electronPlatformName) {
-    case "darwin":
-      createMacosLocalizationDirectories(context);
-      break;
-  }
 }
 
 /** Electronアプリの出力先へVOICEVOX ENGINEを配置する。 */
@@ -55,14 +49,6 @@ function transferVoicevoxEngine(
     const executablePath = path.join(destination, "run");
     chmodSync(executablePath, 0o755);
   }
-}
-
-/** macOSアプリのローカライズ用ディレクトリを作成する。 */
-function createMacosLocalizationDirectories(context: AfterPackContext) {
-  const resourcesPath = resolveMacosResourcesPath(context);
-  // NOTE: actions/upload-artifact@v4は空の.lprojディレクトリをアップロードしないため、macOSのローカライズに必要なディレクトリを作成する。
-  mkdirSync(path.join(resourcesPath, "ja.lproj"), { recursive: true });
-  mkdirSync(path.join(resourcesPath, "en.lproj"), { recursive: true });
 }
 
 /** macOSアプリのResourcesのパスを解決する。 */
