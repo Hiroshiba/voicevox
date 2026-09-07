@@ -617,6 +617,19 @@ jobs:
             --dir "${INSTALLER_DIR}" \
             --pattern "${{ matrix.installer_file }}"
 
+      - name: Prepare Windows application package
+        if: runner.os == 'Windows'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.event.inputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --dir "${INSTALLER_DIR}" \
+            --pattern "voicevox-${{ github.event.inputs.version }}-x64.nsis.7z.[0-9]*"
+          archive_path="${INSTALLER_DIR}/voicevox-${{ github.event.inputs.version }}-x64.nsis.7z"
+          mapfile -t archive_parts < <(printf '%s\n' "$archive_path".[0-9]* | sort -V)
+          cat "${archive_parts[@]}" > "$archive_path"
+
       - name: Install Linux application
         if: runner.os == 'Linux'
         run: |
