@@ -15,7 +15,7 @@ export default function afterPack(
   placeVoicevoxEngine(context, voicevoxEnginePlacement);
 }
 
-/** Electronアプリの出力先へVOICEVOX ENGINEを配置する */
+/** VOICEVOX ENGINEを配置する */
 function placeVoicevoxEngine(
   context: AfterPackContext,
   voicevoxEnginePlacement: VoicevoxEnginePlacement,

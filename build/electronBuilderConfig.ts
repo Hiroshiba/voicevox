@@ -186,7 +186,7 @@ function parseVoicevoxEnginePlacementFromEnv(
   directory: string | undefined,
 ): VoicevoxEnginePlacement {
   const hasDirectoryValue = directory != undefined && directory !== "";
-  const mode = modeValue ?? (hasDirectoryValue ? "copy" : "none");
+  const mode = modeValue ?? "none";
 
   if (mode === "none" && !hasDirectoryValue) {
     return { mode };
