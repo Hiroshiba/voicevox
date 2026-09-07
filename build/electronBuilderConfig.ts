@@ -17,7 +17,7 @@ const dotenvPath = [
 dotenv.config({ path: dotenvPath, quiet: true });
 
 const voicevoxEnginePlacement = parseVoicevoxEnginePlacementFromEnv(
-  process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
+  process.env.VOICEVOX_ENGINE_PLACEMENT_MODE,
   process.env.VOICEVOX_ENGINE_DIR,
 );
 
