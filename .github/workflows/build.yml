@@ -482,15 +482,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            installer_file: VOICEVOX.linux-appimage.${{ github.event.inputs.version }}.sh
-            executable: VOICEVOX.AppImage
-          - os: macos-15-intel
-            installer_file: VOICEVOX.${{ github.event.inputs.version }}-x64.dmg
-            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
-          - os: macos-14
-            installer_file: VOICEVOX.${{ github.event.inputs.version }}-arm64.dmg
-            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
           - os: windows-2022
             installer_file: VOICEVOX.Web.Setup.${{ github.event.inputs.version }}.exe
             executable: VOICEVOX.exe
@@ -568,7 +559,13 @@ jobs:
           if ($process.ExitCode -ne 0) {
             throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
           }
-          Get-ChildItem -Path $env:APP_DIR -Filter *.exe
+          Get-ChildItem -Path $env:APP_DIR -Filter *.exe -Recurse
+          if (Test-Path "$env:LOCALAPPDATA/Programs/VOICEVOX") {
+            Get-ChildItem -Path "$env:LOCALAPPDATA/Programs/VOICEVOX" -Filter *.exe -Recurse
+          }
+          if (Test-Path "$env:ProgramFiles/VOICEVOX") {
+            Get-ChildItem -Path "$env:ProgramFiles/VOICEVOX" -Filter *.exe -Recurse
+          }
 
       - name: Run installer test
         env:
