@@ -11,7 +11,6 @@ import type {
 } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
-
 const dotenvPath = [
   path.join(rootDir, ".env.production.local"),
   path.join(rootDir, ".env.production"),

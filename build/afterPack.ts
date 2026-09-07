@@ -13,10 +13,7 @@ export type VoicevoxEngineTransferMode = z.infer<
 >;
 export type VoicevoxEngineSource =
   | { mode: "none" }
-  | {
-      mode: "copy" | "move";
-      directory: string;
-    };
+  | { mode: "copy" | "move"; directory: string };
 
 /** Electronアプリのパッケージング後処理を行う。 */
 export default function afterPack(
@@ -52,10 +49,7 @@ function transferVoicevoxEngine(
   if (voicevoxEngineSource.mode === "move") {
     renameSync(source, destination);
   } else {
-    cpSync(source, destination, {
-      recursive: true,
-      verbatimSymlinks: true,
-    });
+    cpSync(source, destination, { recursive: true, verbatimSymlinks: true });
   }
 
   if (context.electronPlatformName !== "win32") {
