@@ -4,11 +4,7 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
-import afterPack, { voicevoxEngineTransferModeSchema } from "./afterPack";
-import type {
-  VoicevoxEngineSource,
-  VoicevoxEngineTransferMode,
-} from "./afterPack";
+import afterPack, { voicevoxEngineSourceSchema } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -19,13 +15,10 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineTransferMode = voicevoxEngineTransferModeSchema
-  .default("copy")
-  .parse(process.env.VOICEVOX_ENGINE_TRANSFER_MODE);
-const voicevoxEngineSource = resolveVoicevoxEngineSource(
-  process.env.VOICEVOX_ENGINE_DIR,
-  voicevoxEngineTransferMode,
-);
+const voicevoxEngineSource = voicevoxEngineSourceSchema.parse({
+  mode: process.env.VOICEVOX_ENGINE_TRANSFER_MODE,
+  directory: process.env.VOICEVOX_ENGINE_DIR,
+});
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -185,23 +178,5 @@ const builderOptions: ElectronBuilderConfiguration = {
     icon: "build/icons/icon-dmg.icns",
   },
 };
-
-/** VOICEVOX ENGINEの配置設定を解決する。 */
-function resolveVoicevoxEngineSource(
-  value: string | undefined,
-  transferMode: VoicevoxEngineTransferMode,
-): VoicevoxEngineSource {
-  if (value == undefined || value === "") {
-    return { mode: "none" };
-  }
-
-  if (transferMode === "none") {
-    throw new Error(
-      "VOICEVOX_ENGINE_TRANSFER_MODEがnoneの場合はVOICEVOX_ENGINE_DIRを指定できません",
-    );
-  }
-
-  return { mode: transferMode, directory: value };
-}
 
 export default builderOptions;
