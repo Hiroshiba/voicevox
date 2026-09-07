@@ -563,7 +563,7 @@ jobs:
           $installerPath = Join-Path $env:INSTALLER_DIR "${{ matrix.installer_file }}"
           New-Item -ItemType Directory -Force -Path $env:APP_DIR | Out-Null
           $process = Start-Process -FilePath $installerPath `
-            -ArgumentList @('/S', "/D=$env:APP_DIR") `
+            -ArgumentList @('/S', "/D=$([IO.Path]::GetFullPath($env:APP_DIR))") `
             -Wait -PassThru
           if ($process.ExitCode -ne 0) {
             throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
