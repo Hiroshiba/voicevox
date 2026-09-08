@@ -135,6 +135,138 @@ test("ダウンロードしたファイルはSymbol.asyncDisposeで自動削除�
   }
 });
 
+test("ダウンロードサイズとハッシュを検証する", async () => {
+  await using tempDir = await temporaryDirectory();
+  await using dummyServer = new TestServer({
+    "/simple": async (_req, res) => {
+      res.statusCode = 200;
+      res.end("Hello, World!");
+    },
+  });
+  {
+    await using downloader = new MultiDownloader(tempDir.path, [
+      {
+        name: "simple.txt",
+        size: 13,
+        url: `${dummyServer.url}/simple`,
+        hash: "sha256:dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f",
+      },
+    ]);
+    await downloader.download();
+  }
+  {
+    await using downloader = new MultiDownloader(tempDir.path, [
+      {
+        name: "simple.txt",
+        size: 13,
+        url: `${dummyServer.url}/simple`,
+        hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      },
+    ]);
+    await expect(downloader.download()).rejects.toThrow(
+      "ダウンロードハッシュが一致しません",
+    );
+  }
+  {
+    await using downloader = new MultiDownloader(tempDir.path, [
+      {
+        name: "simple.txt",
+        size: 12,
+        url: `${dummyServer.url}/simple`,
+      },
+    ]);
+    await expect(downloader.download()).rejects.toThrow(
+      "ダウンロードサイズが一致しません",
+    );
+  }
+});
+
+test("不正なダウンロード情報を拒否する", async () => {
+  await using tempDir = await temporaryDirectory();
+  const baseFile = {
+    size: 0,
+    url: "https://example.com/engine.vvpp",
+  };
+  for (const name of [
+    "/engine.vvpp",
+    "C:\\engine.vvpp",
+    "..",
+    "CON.txt",
+    "engine:stream",
+  ]) {
+    expect(
+      () => new MultiDownloader(tempDir.path, [{ ...baseFile, name }]),
+    ).toThrow("ダウンロードファイル名が不正です");
+  }
+  expect(
+    () =>
+      new MultiDownloader(tempDir.path, [
+        {
+          ...baseFile,
+          name: "engine.vvpp",
+          hash: "sha1:0000000000000000000000000000000000000000",
+        },
+      ]),
+  ).toThrow("ダウンロードハッシュの形式が不正です");
+});
+
+test("既存ファイルを削除しない", async () => {
+  await using tempDir = await temporaryDirectory();
+  await fs.writeFile(path.join(tempDir.path, "simple.txt"), "existing");
+  await using dummyServer = new TestServer({
+    "/simple": async (_req, res) => {
+      res.statusCode = 200;
+      res.end("Hello, World!");
+    },
+  });
+  {
+    await using downloader = new MultiDownloader(tempDir.path, [
+      {
+        name: "simple.txt",
+        size: 13,
+        url: `${dummyServer.url}/simple`,
+      },
+    ]);
+    await expect(downloader.download()).rejects.toThrow();
+  }
+  await expect(
+    fs.readFile(path.join(tempDir.path, "simple.txt"), "utf8"),
+  ).resolves.toBe("existing");
+});
+
+test("外部シグナルでダウンロードをキャンセルする", async () => {
+  await using tempDir = await temporaryDirectory();
+  const { promise: requestStarted, resolve: requestStartedResolve } =
+    Promise.withResolvers<void>();
+  await using dummyServer = new TestServer({
+    "/cancel": async (_req, res) => {
+      requestStartedResolve();
+      res.statusCode = 200;
+      res.write("partial");
+      await new Promise<void>((resolve) => {
+        res.on("close", resolve);
+      });
+    },
+  });
+  const controller = new AbortController();
+  {
+    await using downloader = new MultiDownloader(tempDir.path, [
+      {
+        name: "cancel.txt",
+        size: 7,
+        url: `${dummyServer.url}/cancel`,
+      },
+    ]);
+    const downloadResult = downloader.download(controller.signal);
+    await requestStarted;
+    controller.abort();
+    await expect(downloadResult).rejects.toThrow();
+  }
+  await expect(
+    fs.stat(path.join(tempDir.path, "cancel.txt")),
+  ).rejects.toThrow();
+});
+
 test("複数ファイルを同時にダウンロードできる", async () => {
   await using tempDir = await temporaryDirectory();
   let inFlight = 0;
