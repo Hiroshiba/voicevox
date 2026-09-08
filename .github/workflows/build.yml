@@ -596,6 +596,43 @@ jobs:
             echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
             echo "APP_DIR=${{ runner.temp }}/voicevox"
           } >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/measure-volume.mjs" <<'NODE'
+          import assert from "node:assert/strict";
+          import fs from "node:fs";
+          import os from "node:os";
+
+          const phase = process.argv[2];
+          const runnerTemp = process.env.RUNNER_TEMP;
+          assert(["before", "installed", "uninstalled"].includes(phase), "容量計測のphaseが不正です。");
+          assert(runnerTemp != undefined && runnerTemp !== "", "RUNNER_TEMPがありません。");
+
+          const baselinePath = `${runnerTemp}/voicevox-volume-baseline.json`;
+          const volumes = new Map();
+          for (const target of [os.homedir(), runnerTemp]) {
+            const device = fs.statSync(target).dev;
+            if (volumes.has(device)) continue;
+            const { bsize, blocks, bfree } = fs.statfsSync(target);
+            volumes.set(device, { device, usedBytes: bsize * (blocks - bfree) });
+          }
+
+          if (phase === "before") {
+            fs.writeFileSync(baselinePath, JSON.stringify([...volumes.values()]));
+          } else {
+            const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+            assert.deepStrictEqual([...volumes.keys()].sort(), baseline.map(({ device }) => device).sort(), "容量計測対象のdeviceが変化しました。");
+            for (const volume of volumes.values()) {
+              const original = baseline.find(({ device }) => device === volume.device);
+              assert(original != undefined, "baselineにdeviceがありません。");
+              const difference = volume.usedBytes - original.usedBytes;
+              const differenceMiB = difference / 1024 ** 2;
+              const valid = phase === "installed" ? differenceMiB > 0 : differenceMiB <= 256;
+              const condition = phase === "installed" ? "0より大きい" : "256MiB以下";
+              assert(valid, `容量差分が条件を満たしません。phase=${phase} differenceMiB=${differenceMiB} condition=${condition}`);
+              volume.differenceMiB = differenceMiB;
+            }
+          }
+          console.log(JSON.stringify({ phase, volumes: [...volumes.values()] }));
+          NODE
 
       - name: Install FUSE and xvfb on Linux
         if: runner.os == 'Linux'
@@ -626,6 +663,9 @@ jobs:
           archive_path="${INSTALLER_DIR}/voicevox-${{ github.event.inputs.version }}-x64.nsis.7z"
           mapfile -t archive_parts < <(printf '%s\n' "$archive_path".[0-9]* | sort -V)
           cat "${archive_parts[@]}" > "$archive_path"
+
+      - name: Measure filesystem before application install
+        run: node "$RUNNER_TEMP/measure-volume.mjs" before
 
       - name: Install Linux application
         if: runner.os == 'Linux'
@@ -676,6 +716,9 @@ jobs:
             pnpm exec playwright test --config playwright.installed.config.ts
           fi
 
+      - name: Measure filesystem after installer test
+        run: node "$RUNNER_TEMP/measure-volume.mjs" installed
+
       - name: Uninstall Linux application
         if: runner.os == 'Linux'
         run: bash "${APP_DIR}/uninstaller_linux.sh"
@@ -697,3 +740,6 @@ jobs:
             /S --delete-app-data "_?=$(cygpath -w "$APP_DIR")"
           rm "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")"
           rmdir "$(cygpath -u "$APP_DIR")"
+
+      - name: Measure filesystem after application uninstall
+        run: node "$RUNNER_TEMP/measure-volume.mjs" uninstalled
