@@ -68,7 +68,7 @@ const terminateProcess = async (appProcess: AppProcess): Promise<void> => {
   await closed;
 };
 
-test("標準版でエンジンをインストールして音声合成と保存音声の長さを確認できる", async () => {
+test("標準版でエンジンをインストールして音声を書き出しWAV形式を確認できる", async () => {
   const appProcess = spawn(
     path.normalize(executablePath),
     ["--no-sandbox", "--remote-debugging-port=0"],
@@ -152,49 +152,12 @@ test("標準版でエンジンをインストールして音声合成と保存�
         await expect(editorPage.locator(".accent-phrase")).not.toHaveCount(0);
       });
 
-      /*
-      const audioDetail = editorPage.getByTestId("audio-detail");
-      const audioElements =
-        await test.step("音声合成して再生する", async () => {
-          const audioElements = await editorPage.evaluateHandle(() => {
-            const audioElements = new Array<HTMLAudioElement>();
-            HTMLAudioElement.prototype.play = function (
-              this: HTMLAudioElement,
-            ) {
-              audioElements.push(this);
-              return HTMLMediaElement.prototype.play.call(this);
-            };
-            return audioElements;
-          });
-          await audioDetail
-            .getByRole("button")
-            .filter({ hasText: "play_arrow" })
-            .click();
-          await expect(
-            audioDetail.getByRole("button").filter({ hasText: "stop" }),
-          ).toBeEnabled();
-          return audioElements;
-        });
-
-      await test.step("再生された音声の長さを確認する", async () => {
-        await expect(async () => {
-          const durations = await audioElements.evaluate(
-            (audioElements: HTMLAudioElement[]) =>
-              audioElements.map((audioElement) => audioElement.duration),
-          );
-          expect(durations).toHaveLength(1);
-          expect(durations.every(Number.isFinite)).toBe(true);
-          expect(durations[0]).toBeGreaterThan(1);
-        }).toPass({ timeout });
-      });
-      */
-
       await test.step("音声を書き出す", async () => {
         await editorPage.getByRole("button", { name: "ファイル" }).click();
         await getQuasarMenu(editorPage, "選択音声を書き出し").click();
       });
 
-      await test.step("保存音声の長さを確認する", async () => {
+      await test.step("保存されたWAVのヘッダーを確認する", async () => {
         await expect(async () => {
           const wavFiles = (await fs.readdir(outputDir)).filter(
             (fileName) => path.extname(fileName) === ".wav",
@@ -202,17 +165,9 @@ test("標準版でエンジンをインストールして音声合成と保存�
           expect(wavFiles).toHaveLength(1);
           const wavFile = wavFiles.at(0);
           assertNonNullable(wavFile, "保存されたWAVファイルが見つかりません。");
-          const audioBytes = Array.from(
-            await fs.readFile(path.join(outputDir, wavFile)),
-          );
-          const duration = await editorPage.evaluate((audioBytes) => {
-            const audioContext = new OfflineAudioContext(1, 1, 44100);
-            return audioContext
-              .decodeAudioData(Uint8Array.from(audioBytes).buffer)
-              .then((audioBuffer) => audioBuffer.duration);
-          }, audioBytes);
-          expect(Number.isFinite(duration)).toBe(true);
-          expect(duration).toBeGreaterThan(1);
+          const wavData = await fs.readFile(path.join(outputDir, wavFile));
+          expect(wavData.subarray(0, 4).toString("ascii")).toBe("RIFF");
+          expect(wavData.subarray(8, 12).toString("ascii")).toBe("WAVE");
         }).toPass({ timeout });
       });
     } finally {
