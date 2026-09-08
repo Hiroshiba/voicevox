@@ -617,6 +617,7 @@ jobs:
             --dir "${INSTALLER_DIR}" \
             --pattern "${{ matrix.installer_file }}"
 
+      # NOTE: /S では画面遷移時の分割アーカイブ取得・結合が実行されないため、完全なアーカイブを事前に用意する。
       - name: Prepare Windows application package
         if: runner.os == 'Windows'
         env:
