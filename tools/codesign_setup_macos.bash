@@ -14,4 +14,4 @@ if [ ! -v APPLE_API_KEY ]; then
     exit 1
 fi
 
-printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY"
+echo "$APPLE_API_KEY_BASE64" | base64 --decode >"$APPLE_API_KEY"

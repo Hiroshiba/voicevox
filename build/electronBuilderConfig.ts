@@ -101,7 +101,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   ],
   extraFiles: [
     {
-      // NOTE: macOSではREADME.txtを実行ファイル配置領域に置くとコード署名に失敗するため、VOICEVOX.app/Contents/Resources/に配置する。
+      // NOTE: macOSでは実行ファイル配置領域にテキストファイルを置くとコード署名に失敗するため、Resourcesに配置する。
       from: "build/README.txt",
       to: isMac ? "Resources/README.txt" : "README.txt",
     },
