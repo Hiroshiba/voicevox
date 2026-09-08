@@ -570,21 +570,17 @@ jobs:
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             installer_file: VOICEVOX.linux-appimage.${{ github.event.inputs.version }}.sh
             executable: VOICEVOX.AppImage
-          - os: macos-15-intel
-            installer_file: VOICEVOX.${{ github.event.inputs.version }}-x64.dmg
-            executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
-          - os: macos-14
+          - os: macos-latest
             installer_file: VOICEVOX.${{ github.event.inputs.version }}-arm64.dmg
             executable: VOICEVOX.app/Contents/MacOS/VOICEVOX
-          - os: windows-2022
+          - os: windows-latest
             installer_file: VOICEVOX.Web.Setup.${{ github.event.inputs.version }}.exe
             executable: VOICEVOX.exe
     steps:
