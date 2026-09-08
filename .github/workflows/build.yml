@@ -138,6 +138,7 @@ jobs:
           - artifact_name: windows-nvidia-prepackage
             artifact_path: dist_electron/win-unpacked
             voicevox_engine_asset_name: windows-nvidia
+            nsis_web_app_package_url: ""
             package_name: voicevox-cuda
             compressed_artifact_name: voicevox-windows-nvidia
             installer_artifact_name: windows-nvidia-nsis-web
@@ -305,6 +306,12 @@ jobs:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
+      - name: Setup macOS Code Signing
+        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true'
+        run: bash tools/codesign_setup_macos.bash
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+
       # Build result will be exported to ${{ matrix.artifact_path }}
       - name: Build Electron
         env:
@@ -312,6 +319,15 @@ jobs:
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
+          VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
+          VOICEVOX_ENGINE_PLACEMENT_MODE: ${{ matrix.voicevox_engine_asset_name != null && 'move' || 'none' }}
+          CSC_LINK: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_P12_BASE64 || '' }}
+          CSC_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_P12_PASSWORD || '' }}
+          APPLE_API_KEY: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && env.APPLE_API_KEY_PATH || '' }}
+          APPLE_API_KEY_ID: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_API_ISSUER || '' }}
+          # Windowsでは汎用CSC_LINKへのフォールバックを防ぐ。
+          WIN_CSC_LINK: ""
 
           # https://github.com/electron-userland/electron-builder/issues/3179
           USE_HARD_LINKS: false
@@ -327,48 +343,16 @@ jobs:
         env:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
 
+      - name: Cleanup macOS Code Signing
+        if: always() && startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && env.APPLE_API_KEY_PATH != ''
+        run: bash tools/codesign_cleanup_macos.bash
+
       - name: Rename NoEngine Prepackage
         run: |
           mv ${{ matrix.artifact_path }} ./prepackage
 
-      - name: Merge VOICEVOX ENGINE into prepackage/
-        if: matrix.voicevox_engine_asset_name != null && (startsWith(matrix.artifact_name, 'windows-') || startsWith(matrix.artifact_name, 'linux-'))
-        run: |
-          mv voicevox_engine/ prepackage/vv-engine/
-
-      - name: Merge VOICEVOX ENGINE into prepackage/VOICEVOX.app/Contents/Resources/
-        if: matrix.voicevox_engine_asset_name != null && startsWith(matrix.artifact_name, 'macos-')
-        run: |
-          mv voicevox_engine/ prepackage/VOICEVOX.app/Contents/Resources/vv-engine/
-
-      - name: Recover file permissions
-        if: startsWith(matrix.artifact_name, 'linux-') # Linux
-        run: |
-          chmod +x "prepackage/${{ matrix.linux_executable_name }}"
-          if [ -d "prepackage/vv-engine" ]; then
-            chmod +x "prepackage/vv-engine/run"
-          fi
-
-      - name: Recover file permissions for macOS build
-        if: startsWith(matrix.artifact_name, 'macos-') # macOS
-        run: |
-          chmod +x "prepackage/VOICEVOX.app/Contents/Frameworks/VOICEVOX Helper (GPU).app/Contents/MacOS/VOICEVOX Helper (GPU)"
-          chmod +x "prepackage/VOICEVOX.app/Contents/Frameworks/VOICEVOX Helper (Plugin).app/Contents/MacOS/VOICEVOX Helper (Plugin)"
-          chmod +x "prepackage/VOICEVOX.app/Contents/Frameworks/VOICEVOX Helper (Renderer).app/Contents/MacOS/VOICEVOX Helper (Renderer)"
-          chmod +x "prepackage/VOICEVOX.app/Contents/Frameworks/VOICEVOX Helper.app/Contents/MacOS/VOICEVOX Helper"
-
-          if [ -d "prepackage/VOICEVOX.app/Contents/Resources/vv-engine" ]; then
-            chmod +x "prepackage/VOICEVOX.app/Contents/Resources/vv-engine/run"
-          fi
-
-      # NOTE: actions/upload-artifact@v4 does not upload `**.lproj` directories, which are an empty directory.
-      #       Make `ja.lproj` directory because it is necessary for Japanese localization on macOS.
-      - name: Make .lproj directories in Resources directory of VOICEVOX.app
-        if: startsWith(matrix.artifact_name, 'macos-')
-        run: mkdir -p prepackage/VOICEVOX.app/Contents/Resources/ja.lproj prepackage/VOICEVOX.app/Contents/Resources/en.lproj
-
       - name: Ad hoc code signing
-        if: endsWith(matrix.installer_artifact_name, '-dmg') # macOS
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing != 'true' # macOS
         run: codesign --force --deep -s - prepackage/VOICEVOX.app
 
       - name: Create Linux tar.gz (without nvidia)
@@ -451,11 +435,11 @@ jobs:
           THUMBPRINT_PATH: /tmp/esignercka_thumbprint.txt
           SIGNTOOL_PATH_PATH: /tmp/signtool_path.txt
 
-      # NOTE: prepackage can be removed before splitting nsis-web archive
       - name: Build Electron
         if: endsWith(matrix.installer_artifact_name, '-nsis-web') || endsWith(matrix.installer_artifact_name, '-appimage') # windows and linux
         env:
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
+          NSIS_WEB_APP_PACKAGE_URL: ${{ matrix.nsis_web_app_package_url || '' }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
         run: |
@@ -550,7 +534,7 @@ jobs:
         with:
           name: ${{ matrix.installer_artifact_name }}-release
           path: |-
-            dist_electron/nsis-web/out/*.7z.*
+            dist_electron/nsis-web/*.nsis.7z
             dist_electron/nsis-web/*.exe
 
       - name: Upload Windows NSIS Web to Release Assets
@@ -560,6 +544,6 @@ jobs:
           prerelease: ${{ github.event.inputs.prerelease }}
           tag_name: ${{ env.VOICEVOX_EDITOR_VERSION }}
           files: |-
-            dist_electron/nsis-web/out/*.7z.*
+            dist_electron/nsis-web/*.nsis.7z
             dist_electron/nsis-web/*.exe
           target_commitish: ${{ github.sha }}

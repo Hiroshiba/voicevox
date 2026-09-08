@@ -3,7 +3,8 @@ import { readdirSync, existsSync, rmSync } from "node:fs";
 import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
-import afterAllArtifactBuild from "./afterAllArtifactBuild";
+import afterPack from "./afterPack";
+import type { VoicevoxEnginePlacement } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
 const dotenvPath = [
@@ -14,8 +15,14 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const VOICEVOX_ENGINE_DIR =
-  process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
+const voicevoxEnginePlacement = parseVoicevoxEnginePlacementFromEnv(
+  process.env.VOICEVOX_ENGINE_PLACEMENT_MODE,
+  process.env.VOICEVOX_ENGINE_DIR,
+);
+
+const nsisWebAppPackageUrl = z
+  .preprocess((value) => (value === "" ? undefined : value), z.url().optional())
+  .parse(process.env.NSIS_WEB_APP_PACKAGE_URL);
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -39,6 +46,8 @@ const WIN_SIGNING_HASH_ALGORITHMS = process.env.WIN_SIGNING_HASH_ALGORITHMS
   : undefined;
 
 const isMac = process.platform === "darwin";
+
+const isMacCodeSigning = isMac && (process.env.CSC_LINK ?? "").length > 0;
 
 const isArm64 = process.arch === "arm64";
 
@@ -97,12 +106,9 @@ const builderOptions: ElectronBuilderConfiguration = {
   ],
   extraFiles: [
     {
+      // macOSではREADME.txtを実行ファイル配置領域に置くとコード署名に失敗するため、Resourcesへ配置する。
       from: "build/README.txt",
-      to: extraFilePrefix + "README.txt",
-    },
-    {
-      from: VOICEVOX_ENGINE_DIR,
-      to: path.join(extraFilePrefix, "vv-engine"),
+      to: isMac ? "Resources/README.txt" : "README.txt",
     },
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
@@ -113,7 +119,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
-  afterAllArtifactBuild,
+  afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -141,7 +147,10 @@ const builderOptions: ElectronBuilderConfiguration = {
   nsisWeb: {
     artifactName: NSIS_WEB_ARTIFACT_NAME || undefined,
     include: "build/installer.nsh",
+    appPackageUrl: nsisWebAppPackageUrl,
     oneClick: false,
+    perMachine: false,
+    allowElevation: true,
     allowToChangeInstallationDirectory: true,
   },
   publish: {
@@ -172,11 +181,31 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    identity: null, // ad-hoc署名をしない
+    // 正式署名時はundefinedで署名Identityを未指定にし、Electron Builderに自動検出させる。
+    // 正式署名しない場合はnullで署名を無効化し、完成したアプリを後段でad hoc署名する。
+    identity: isMacCodeSigning ? undefined : null,
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
   },
 };
+
+/** 環境変数からVOICEVOX ENGINEの配置設定を得る */
+function parseVoicevoxEnginePlacementFromEnv(
+  modeValue: string | undefined,
+  directory: string | undefined,
+): VoicevoxEnginePlacement {
+  const hasDirectoryValue = directory != undefined && directory !== "";
+  const mode = modeValue ?? "none";
+
+  if (mode === "none" && !hasDirectoryValue) {
+    return { mode };
+  }
+  if ((mode === "copy" || mode === "move") && hasDirectoryValue) {
+    return { mode, directory };
+  }
+
+  throw new Error("VOICEVOX ENGINEの配置設定が不正です");
+}
 
 export default builderOptions;
