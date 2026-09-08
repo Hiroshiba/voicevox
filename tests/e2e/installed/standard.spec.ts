@@ -132,36 +132,38 @@ test("標準版でエンジンをインストールして音声合成と再生�
         await expect(editorPage.locator(".accent-phrase")).not.toHaveCount(0);
       });
 
-      const synthesisResponse =
+      const audioElements =
         await test.step("音声合成して再生する", async () => {
-          const responsePromise = editorPage.waitForResponse(
-            (response) =>
-              response.request().method() === "POST" &&
-              new URL(response.url()).pathname.endsWith("/synthesis"),
-            { timeout },
-          );
+          const audioElements = await editorPage.evaluateHandle(() => {
+            const audioElements = new Array<HTMLAudioElement>();
+            HTMLAudioElement.prototype.play = function (
+              this: HTMLAudioElement,
+            ) {
+              audioElements.push(this);
+              return HTMLMediaElement.prototype.play.call(this);
+            };
+            return audioElements;
+          });
           await audioDetail
             .getByRole("button")
             .filter({ hasText: "play_arrow" })
             .click();
-          const response = await responsePromise;
-          expect(response.ok()).toBe(true);
           await expect(
             audioDetail.getByRole("button").filter({ hasText: "stop" }),
           ).toBeEnabled();
-          return response;
+          return audioElements;
         });
 
-      await test.step("音声データをデコードして長さを確認する", async () => {
-        const bytes = [...(await synthesisResponse.body())];
-        const duration = await editorPage.evaluate((audioBytes) => {
-          const arrayBuffer = Uint8Array.from(audioBytes).buffer;
-          const audioContext = new OfflineAudioContext(1, 1, 44100);
-          return audioContext
-            .decodeAudioData(arrayBuffer)
-            .then((audioBuffer) => audioBuffer.duration);
-        }, bytes);
-        expect(duration).toBeGreaterThan(1);
+      await test.step("再生された音声の長さを確認する", async () => {
+        await expect(async () => {
+          const durations = await audioElements.evaluate(
+            (audioElements: HTMLAudioElement[]) =>
+              audioElements.map((audioElement) => audioElement.duration),
+          );
+          expect(durations).toHaveLength(1);
+          expect(durations.every(Number.isFinite)).toBe(true);
+          expect(durations[0]).toBeGreaterThan(1);
+        }).toPass({ timeout });
       });
     } finally {
       await browser.close();
