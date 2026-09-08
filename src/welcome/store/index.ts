@@ -93,7 +93,10 @@ type AutomaticInstallState =
   | { type: "disabled" }
   | { type: "waiting"; engineId: EngineId };
 
-type InstallResult = { type: "succeeded" } | { type: "failed"; error: unknown };
+type InstallResult =
+  | { type: "succeeded" }
+  | { type: "cancelled" }
+  | { type: "failed"; error: unknown };
 
 export type LaunchEditorState =
   | { enabled: true }
@@ -316,7 +319,13 @@ function createWelcomeStore() {
       window.welcomeBackend.logInfo(
         `Engine package ${engineId} installation started.`,
       );
-      await window.welcomeBackend.installEngine({ engineId, target });
+      const result = await window.welcomeBackend.installEngine({
+        engineId,
+        target,
+      });
+      if (result === "cancelled") {
+        return { type: "cancelled" };
+      }
       window.welcomeBackend.logInfo(
         `Engine package ${engineId} installation completed.`,
       );
@@ -345,6 +354,9 @@ function createWelcomeStore() {
     }
 
     const result = await runInstallEngine(engineId, target);
+    if (result.type === "cancelled") {
+      return;
+    }
     if (result.type === "failed") {
       await showErrorDialog(
         "エンジンのインストールに失敗しました",
@@ -390,6 +402,9 @@ function createWelcomeStore() {
     const target = engineState.latestInfo.selectedRuntimeTarget;
     automaticInstallState.value = { type: "disabled" };
     const result = await runInstallEngine(engineId, target);
+    if (result.type === "cancelled") {
+      return;
+    }
     if (result.type === "failed") {
       await showErrorDialog(
         "エンジンのインストールに失敗しました",

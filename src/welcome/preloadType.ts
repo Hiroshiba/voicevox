@@ -11,7 +11,7 @@ export interface WelcomeSandbox {
   installEngine(obj: {
     engineId: EngineId;
     target: RuntimeTarget;
-  }): Promise<void>;
+  }): Promise<"succeeded" | "cancelled">;
   getDownloadableDefaultEnginePackageIds(): Promise<EngineId[]>;
   getEnginePackageEmbeddedInfo(
     engineId: EngineId,

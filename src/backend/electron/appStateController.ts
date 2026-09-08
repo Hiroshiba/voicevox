@@ -59,8 +59,11 @@ export class AppStateController {
   /** メインウィンドウに切り替える。 */
   async switchToMainWindow() {
     const welcomeWindowManager = getWelcomeWindowManager();
-    if (welcomeWindowManager.isEngineInstallationInProgress()) {
-      throw new Error("エンジンのインストール中はMainへ切り替えられません。");
+    if (
+      welcomeWindowManager.isEngineInstallationInProgress() ||
+      welcomeWindowManager.isCloseRequested()
+    ) {
+      throw new Error("エンジンのインストールまたは終了処理中です。");
     }
     log.info("Switching to main window");
     this.quitState = "switch";
@@ -190,8 +193,12 @@ export class AppStateController {
   /** 編集状態に関わらず終了する */
   shutdown() {
     const welcomeWindowManager = getWelcomeWindowManager();
-    if (welcomeWindowManager.isEngineInstallationInProgress()) {
-      log.info("Engine installation is in progress. Preventing shutdown.");
+    const completion = welcomeWindowManager.requestClose();
+    if (completion != undefined) {
+      log.info(
+        "Engine installation is in progress. Waiting for shutdown preparation.",
+      );
+      void completion.then(() => this.shutdown());
       return;
     }
     const mainWindowManager = getMainWindowManager();

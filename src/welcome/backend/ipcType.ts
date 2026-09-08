@@ -18,7 +18,7 @@ export type WelcomeIpcIHData = {
         target: RuntimeTarget;
       },
     ];
-    return: void;
+    return: "succeeded" | "cancelled";
   };
   GET_DOWNLOADABLE_DEFAULT_ENGINE_PACKAGE_IDS: {
     args: [];

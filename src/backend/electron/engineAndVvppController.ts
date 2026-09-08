@@ -270,6 +270,7 @@ export class EngineAndVvppController {
    */
   async fetchEnginePackageLatestInfo(
     engineId: EngineId,
+    signal?: AbortSignal,
   ): Promise<EnginePackageLatestInfo> {
     const envEngineInfo = this.getDownloadableEnvEngineInfos().find(
       (info) => info.uuid === engineId,
@@ -287,7 +288,7 @@ export class EngineAndVvppController {
 
     let latestInfo: Awaited<ReturnType<typeof fetchLatestDefaultEngineInfo>>;
     try {
-      latestInfo = await fetchLatestDefaultEngineInfo(latestUrl);
+      latestInfo = await fetchLatestDefaultEngineInfo(latestUrl, signal);
     } catch (cause) {
       throw new DisplayableError(
         "ネットワークエラーにより最新のエンジン情報を取得できませんでした。インターネット接続を確認して、再試行してください。",
@@ -327,6 +328,7 @@ export class EngineAndVvppController {
     downloadDir: string,
     packageInfo: PackageInfo,
     callbacks: { onProgress: ProgressCallback<"download" | "install"> },
+    signal?: AbortSignal,
   ) {
     if (packageInfo.files.length === 0) {
       throw new Error("No packages to download");
@@ -341,7 +343,8 @@ export class EngineAndVvppController {
         },
       },
     );
-    await downloader.download();
+    await downloader.download(signal);
+    signal?.throwIfAborted();
 
     // インストール
     await this.installVvppEngine({
@@ -354,6 +357,7 @@ export class EngineAndVvppController {
         },
       },
     });
+    signal?.throwIfAborted();
   }
 
   /** 各エンジンの設定を初期化する */

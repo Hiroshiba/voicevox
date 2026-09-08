@@ -38,9 +38,19 @@ const latestDefaultEngineInfoSchema = z.object({
 });
 
 /** デフォルトエンジンの最新情報を取得する */
-export const fetchLatestDefaultEngineInfo = async (url: string) => {
-  const response = await fetch(url);
-  return latestDefaultEngineInfoSchema.parse(await response.json());
+export const fetchLatestDefaultEngineInfo = async (
+  url: string,
+  signal?: AbortSignal,
+) => {
+  const timeoutSignal = AbortSignal.timeout(30_000);
+  const fetchSignal =
+    signal == undefined
+      ? timeoutSignal
+      : AbortSignal.any([signal, timeoutSignal]);
+  const response = await fetch(url, { signal: fetchSignal });
+  const result = latestDefaultEngineInfoSchema.parse(await response.json());
+  fetchSignal.throwIfAborted();
+  return result;
 };
 
 /** 指定ターゲットのパッケージを取得する */

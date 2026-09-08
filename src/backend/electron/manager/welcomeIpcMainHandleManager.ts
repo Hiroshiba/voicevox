@@ -1,3 +1,5 @@
+import * as fsPromises from "node:fs/promises";
+import path from "node:path";
 import { app, BrowserWindow } from "electron";
 import { getEngineAndVvppController } from "../engineAndVvppController";
 import { getConfigManager } from "../electronConfig";
@@ -19,12 +21,21 @@ class WelcomeIpcMainHandleManager {
     return {
       INSTALL_ENGINE: async (_, obj) => {
         const welcomeWindowManager = getWelcomeWindowManager();
-        welcomeWindowManager.beginEngineInstallation(obj.engineId);
+        const signal = welcomeWindowManager.beginEngineInstallation(
+          obj.engineId,
+        );
         try {
+          signal.throwIfAborted();
+          await using downloadDir = await fsPromises.mkdtempDisposable(
+            path.join(app.getPath("temp"), "voicevox-engine-"),
+          );
+
           const status =
             await engineAndVvppController.fetchEnginePackageLatestInfo(
               obj.engineId,
+              signal,
             );
+          signal.throwIfAborted();
 
           let lastUpdateTime = 0;
           let lastLogTime = 0;
@@ -37,7 +48,7 @@ class WelcomeIpcMainHandleManager {
           );
 
           await engineAndVvppController.downloadAndInstallVvppEngine(
-            app.getPath("downloads"),
+            downloadDir.path,
             targetPackageInfo.packageInfo,
             {
               onProgress: ({ type, progress }) => {
@@ -56,7 +67,19 @@ class WelcomeIpcMainHandleManager {
                 }
               },
             },
+            signal,
           );
+          signal.throwIfAborted();
+          return "succeeded";
+        } catch (error) {
+          if (signal.aborted) {
+            log.error(
+              "終了要求によりエンジンのインストールを中止しました。",
+              error,
+            );
+            return "cancelled";
+          }
+          throw error;
         } finally {
           welcomeWindowManager.endEngineInstallation(obj.engineId);
         }
@@ -98,10 +121,6 @@ class WelcomeIpcMainHandleManager {
         welcomeWindowManager.toggleMaximizeWindow();
       },
       CLOSE_WINDOW: () => {
-        const welcomeWindowManager = getWelcomeWindowManager();
-        if (welcomeWindowManager.isEngineInstallationInProgress()) {
-          return;
-        }
         appStateController.shutdown();
       },
       IS_MAXIMIZED_WINDOW: () => {

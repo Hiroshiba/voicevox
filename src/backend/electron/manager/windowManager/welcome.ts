@@ -26,9 +26,18 @@ type WindowManagerOption = {
   isTest: boolean;
 };
 
+type EngineInstallationInProgressState = {
+  type: "installing" | "cancelling";
+  engineIds: Set<EngineId>;
+  abortController: AbortController;
+  completion: Promise<void>;
+  resolveCompletion: () => void;
+};
+
 type EngineInstallationState =
   | { type: "idle" }
-  | { type: "installing"; engineIds: Set<EngineId> };
+  | EngineInstallationInProgressState
+  | { type: "closing" };
 
 type LaunchContextState =
   | { type: "uninitialized" }
@@ -121,6 +130,7 @@ class WelcomeWindowManager {
     win.on("close", (event) => {
       if (this.isEngineInstallationInProgress()) {
         event.preventDefault();
+        getAppStateController().shutdown();
         return;
       }
       const appStateController = getAppStateController();
@@ -132,6 +142,7 @@ class WelcomeWindowManager {
       this._win = undefined;
       this._ipc = undefined;
       this.launchContextState = { type: "uninitialized" };
+      this.engineInstallationState = { type: "idle" };
     });
     this._win = win;
     this.launchContextState = { type: "initialized", context };
@@ -220,7 +231,7 @@ class WelcomeWindowManager {
   }
 
   public destroyWindow() {
-    if (this.isEngineInstallationInProgress()) {
+    if (this.isEngineInstallationInProgress() || this.isCloseRequested()) {
       throw new Error(
         "エンジンのインストール中はWelcomeウィンドウを閉じられません。",
       );
@@ -229,14 +240,24 @@ class WelcomeWindowManager {
   }
 
   /** エンジンのインストールを開始状態にする。 */
-  public beginEngineInstallation(engineId: EngineId): void {
+  public beginEngineInstallation(engineId: EngineId): AbortSignal {
     const state = this.engineInstallationState;
     if (state.type === "idle") {
+      const { promise, resolve } = Promise.withResolvers<void>();
+      const abortController = new AbortController();
       this.engineInstallationState = {
         type: "installing",
         engineIds: new Set([engineId]),
+        abortController,
+        completion: promise,
+        resolveCompletion: resolve,
       };
-      return;
+      return abortController.signal;
+    }
+    if (state.type === "closing" || state.type === "cancelling") {
+      throw new Error(
+        "Welcomeウィンドウの終了処理中はエンジンをインストールできません。",
+      );
     }
     if (state.engineIds.has(engineId)) {
       throw new Error(
@@ -245,28 +266,62 @@ class WelcomeWindowManager {
     }
     const engineIds = new Set(state.engineIds);
     engineIds.add(engineId);
-    this.engineInstallationState = { type: "installing", engineIds };
+    this.engineInstallationState = { ...state, engineIds };
+    return state.abortController.signal;
   }
 
   /** エンジンのインストールを完了状態にする。 */
   public endEngineInstallation(engineId: EngineId): void {
     const state = this.engineInstallationState;
-    if (state.type === "idle" || !state.engineIds.has(engineId)) {
+    if (
+      state.type === "idle" ||
+      state.type === "closing" ||
+      !state.engineIds.has(engineId)
+    ) {
       throw new Error(
         `エンジンのインストール状態が不正です。エンジンID: ${engineId}`,
       );
     }
     const engineIds = new Set(state.engineIds);
     engineIds.delete(engineId);
-    this.engineInstallationState =
-      engineIds.size === 0
-        ? { type: "idle" }
-        : { type: "installing", engineIds };
+    if (engineIds.size === 0) {
+      state.resolveCompletion();
+      this.engineInstallationState =
+        state.type === "cancelling" ? { type: "closing" } : { type: "idle" };
+      return;
+    }
+    this.engineInstallationState = { ...state, engineIds };
   }
 
   /** エンジンのインストール中かどうかを取得する。 */
   public isEngineInstallationInProgress(): boolean {
-    return this.engineInstallationState.type === "installing";
+    const type = this.engineInstallationState.type;
+    return type === "installing" || type === "cancelling";
+  }
+
+  /** Welcomeウィンドウの終了処理中かどうかを取得する。 */
+  public isCloseRequested(): boolean {
+    const type = this.engineInstallationState.type;
+    return type === "cancelling" || type === "closing";
+  }
+
+  /** エンジンのインストール終了を待機し、終了処理を開始する。 */
+  public requestClose(): Promise<void> | undefined {
+    const state = this.engineInstallationState;
+    if (state.type === "idle") {
+      this.engineInstallationState = { type: "closing" };
+      return undefined;
+    }
+    if (state.type === "closing") {
+      return undefined;
+    }
+    if (state.type === "cancelling") {
+      return state.completion;
+    }
+
+    state.abortController.abort();
+    this.engineInstallationState = { ...state, type: "cancelling" };
+    return state.completion;
   }
 
   /** エンジンの進捗をWelcomeウィンドウへ送信する。 */
