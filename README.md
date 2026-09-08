@@ -128,6 +128,17 @@ pnpm run electron:build
 
 fork したリポジトリで Actions を ON にし、workflow_dispatch で`build.yml`を起動すればビルドできます。
 成果物は Release にアップロードされます。
+エディターは OS・CPU アーキテクチャごとにコンパイルし、同じ成果物からエンジンなし版と同梱版を組み立てます。
+
+Windows CUDA 版の単一 NSIS パッケージは GitHub Release のサイズ上限を超えるため、Actions の artifact に保存します。
+オンライン配布する場合は、`cuda_package_url` にバージョン固定の公開 URL を指定してビルドし、生成された `.nsis.7z` をその URL へ配置してください。
+URL を指定しない場合、CUDA 版のインストーラーは Release に公開しません。
+
+macOS の正式署名には、アプリ用の `APPLE_P12_BASE64` と `APPLE_P12_PASSWORD`、同梱 PKG 用の `APPLE_INSTALLER_P12_BASE64` と `APPLE_INSTALLER_P12_PASSWORD` を Actions の secrets に設定します。
+公証には `APPLE_API_KEY_BASE64`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER` が必要です。
+正式署名・公証を実行しないビルドでは、`code_signing` を無効にしてください。
+この場合も macOS アプリには実行に必要な ad hoc 署名を行います。
+Windows 同梱版のコマンド導入は [tools の手順](tools/README.md)を参照してください。
 
 ## テスト
 

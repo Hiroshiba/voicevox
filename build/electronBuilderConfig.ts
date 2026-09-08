@@ -48,6 +48,8 @@ const WIN_SIGNING_HASH_ALGORITHMS = process.env.WIN_SIGNING_HASH_ALGORITHMS
 const isMac = process.platform === "darwin";
 
 const isMacCodeSigning = isMac && (process.env.CSC_LINK ?? "").length > 0;
+const isMacInstallerCodeSigning =
+  isMacCodeSigning && (process.env.CSC_INSTALLER_LINK ?? "").length > 0;
 
 const isArm64 = process.arch === "arm64";
 
@@ -119,6 +121,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
+  forceCodeSigning: isMacCodeSigning,
   afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
@@ -184,6 +187,11 @@ const builderOptions: ElectronBuilderConfiguration = {
     // 正式署名時はundefinedで署名Identityを未指定にし、Electron Builderに自動検出させる。
     // 正式署名しない場合はnullで署名を無効化し、完成したアプリを後段でad hoc署名する。
     identity: isMacCodeSigning ? undefined : null,
+    notarize: isMacCodeSigning,
+  },
+  pkg: {
+    installLocation: "/Applications",
+    identity: isMacInstallerCodeSigning ? undefined : null,
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
