@@ -7,6 +7,7 @@ import treeKill from "tree-kill";
 import { chromium, expect, test } from "@playwright/test";
 import { z } from "zod";
 import { assertNonNullable } from "@/type/utility";
+import { navigateToMain } from "../navigators";
 
 const { VOICEVOX_EXECUTABLE_PATH: executablePath } = z
   .object({
@@ -65,7 +66,7 @@ const terminateProcess = async (appProcess: AppProcess): Promise<void> => {
   await closed;
 };
 
-test("標準版でエンジンをインストールしてエディタを起動できる", async () => {
+test("標準版でエンジンをインストールして音声合成と再生ができる", async () => {
   const appProcess = spawn(
     path.normalize(executablePath),
     ["--no-sandbox", "--remote-debugging-port=0"],
@@ -121,34 +122,46 @@ test("標準版でエンジンをインストールしてエディタを起動�
         return await editorPagePromise;
       });
 
-      await test.step("利用規約を表示する", async () => {
-        await expect(
-          editorPage.getByText("利用規約に関するお知らせ", { exact: true }),
-        ).toBeVisible();
+      await navigateToMain(editorPage);
+
+      const audioDetail = editorPage.getByTestId("audio-detail");
+      await test.step("テキストを入力する", async () => {
+        const input = editorPage.getByRole("textbox", { name: "1行目" });
+        await input.fill("インストーラー版の音声合成を確認します。");
+        await input.press("Enter");
+        await expect(editorPage.locator(".accent-phrase")).not.toHaveCount(0);
       });
 
-      await test.step("エンジンが応答する", async () => {
-        const { engineInfos, altPortInfos } = await editorPage.evaluate(
-          async () => ({
-            engineInfos: await window.backend.engineInfos(),
-            altPortInfos: await window.backend.getAltPortInfos(),
-          }),
-        );
-        const defaultEngine = engineInfos.find((engine) => engine.isDefault);
-        assertNonNullable(
-          defaultEngine,
-          "デフォルトエンジンが見つかりません。",
-        );
-        const port =
-          altPortInfos[defaultEngine.uuid] ?? defaultEngine.defaultPort;
-        const engineVersionUrl = `${defaultEngine.protocol}//${defaultEngine.hostname}:${port}${defaultEngine.pathname}/version`;
-        await expect(async () => {
-          const response = await fetch(engineVersionUrl);
-          expect(response.ok).toBe(true);
-          z.string()
-            .min(1)
-            .parse(await response.json());
-        }).toPass({ timeout });
+      const synthesisResponse =
+        await test.step("音声合成して再生する", async () => {
+          const responsePromise = editorPage.waitForResponse(
+            (response) =>
+              response.request().method() === "POST" &&
+              new URL(response.url()).pathname.endsWith("/synthesis"),
+            { timeout },
+          );
+          await audioDetail
+            .getByRole("button")
+            .filter({ hasText: "play_arrow" })
+            .click();
+          const response = await responsePromise;
+          expect(response.ok()).toBe(true);
+          await expect(
+            audioDetail.getByRole("button").filter({ hasText: "stop" }),
+          ).toBeEnabled();
+          return response;
+        });
+
+      await test.step("音声データをデコードして長さを確認する", async () => {
+        const bytes = [...(await synthesisResponse.body())];
+        const duration = await editorPage.evaluate((audioBytes) => {
+          const arrayBuffer = Uint8Array.from(audioBytes).buffer;
+          const audioContext = new OfflineAudioContext(1, 1, 44100);
+          return audioContext
+            .decodeAudioData(arrayBuffer)
+            .then((audioBuffer) => audioBuffer.duration);
+        }, bytes);
+        expect(duration).toBeGreaterThan(1);
       });
     } finally {
       await browser.close();
