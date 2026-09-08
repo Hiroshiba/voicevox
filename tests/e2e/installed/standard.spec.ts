@@ -6,8 +6,8 @@ import { promisify } from "node:util";
 import treeKill from "tree-kill";
 import { chromium, expect, test } from "@playwright/test";
 import { z } from "zod";
-import { assertNonNullable } from "@/type/utility";
 import { navigateToMain } from "../navigators";
+import { assertNonNullable } from "@/type/utility";
 
 const { VOICEVOX_EXECUTABLE_PATH: executablePath } = z
   .object({
