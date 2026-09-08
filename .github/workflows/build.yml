@@ -319,7 +319,7 @@ jobs:
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
           VOICEVOX_ENGINE_DIR: ${{ matrix.voicevox_engine_asset_name != null && format('{0}/voicevox_engine', github.workspace) || '' }}
-          VOICEVOX_ENGINE_TRANSFER_MODE: move
+          VOICEVOX_ENGINE_PLACEMENT_MODE: ${{ matrix.voicevox_engine_asset_name != null && 'move' || 'none' }}
           CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
           APPLE_API_KEY: ${{ env.APPLE_API_KEY_PATH }}
@@ -351,13 +351,8 @@ jobs:
           mv ${{ matrix.artifact_path }} ./prepackage
 
       - name: Ad hoc code signing
-        if: startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing != 'true'
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing != 'true' # macOS
         run: codesign --force --deep -s - prepackage/VOICEVOX.app
-
-      - name: Recover file permissions
-        if: startsWith(matrix.artifact_name, 'linux-') # Linux
-        run: |
-          chmod +x "prepackage/${{ matrix.linux_executable_name }}"
 
       - name: Create Linux tar.gz (without nvidia)
         if: startsWith(matrix.artifact_name, 'linux-') && !contains(matrix.artifact_name, 'nvidia')

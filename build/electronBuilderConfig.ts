@@ -5,39 +5,9 @@ import type { Configuration as ElectronBuilderConfiguration } from "electron-bui
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
-import {
-  voicevoxEngineSourceSchema,
-  voicevoxEngineTransferModeSchema,
-} from "./types";
-import type { VoicevoxEngineSource, VoicevoxEngineTransferMode } from "./types";
+import type { VoicevoxEnginePlacement } from "./afterPack";
 
 const rootDir = path.join(import.meta.dirname, "..");
-
-/** VOICEVOX ENGINEの配置設定を解決する。 */
-function resolveVoicevoxEngineSource(
-  value: string | undefined,
-  transferMode: VoicevoxEngineTransferMode,
-): VoicevoxEngineSource {
-  const defaultVoicevoxEngineDir = "../voicevox_engine/dist/run/";
-  const usesDefaultVoicevoxEngineDir = value == undefined || value === "";
-  const directory = usesDefaultVoicevoxEngineDir
-    ? defaultVoicevoxEngineDir
-    : value;
-
-  if (
-    usesDefaultVoicevoxEngineDir &&
-    !existsSync(path.resolve(rootDir, directory))
-  ) {
-    return voicevoxEngineSourceSchema.parse({ kind: "exclude" });
-  }
-
-  return voicevoxEngineSourceSchema.parse({
-    kind: "include",
-    directory,
-    transferMode,
-  });
-}
-
 const dotenvPath = [
   path.join(rootDir, ".env.production.local"),
   path.join(rootDir, ".env.production"),
@@ -46,12 +16,9 @@ const dotenvPath = [
 ];
 dotenv.config({ path: dotenvPath, quiet: true });
 
-const voicevoxEngineTransferMode = voicevoxEngineTransferModeSchema
-  .default("copy")
-  .parse(process.env.VOICEVOX_ENGINE_TRANSFER_MODE);
-const voicevoxEngineSource = resolveVoicevoxEngineSource(
+const voicevoxEnginePlacement = parseVoicevoxEnginePlacementFromEnv(
+  process.env.VOICEVOX_ENGINE_PLACEMENT_MODE,
   process.env.VOICEVOX_ENGINE_DIR,
-  voicevoxEngineTransferMode,
 );
 
 // ${productName} Web Setup ${version}.${ext}
@@ -82,7 +49,9 @@ const isArm64 = process.arch === "arm64";
 const isMacCodeSigning = isMac && (process.env.CSC_LINK ?? "").length > 0;
 
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
-// macOSで実行時に使用する7zzをVOICEVOX.app/Contents/MacOS/に配置する。
+// しかし、実行ファイルはVOICEVOX.app/Contents/MacOS/にあるため、extraFilesをVOICEVOX.app/Contents/ディレクトリにコピーするのは正しくない。
+// VOICEVOX.app/Contents/MacOS/ディレクトリにコピーされるように修正する。
+// cf: https://k-hyoda.hatenablog.com/entry/2021/10/23/000349#%E8%BF%BD%E5%8A%A0%E5%B1%95%E9%96%8B%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E5%85%88%E3%81%AE%E8%A8%AD%E5%AE%9A
 const extraFilePrefix = isMac ? "MacOS/" : "";
 
 const sevenZipFile = readdirSync(path.join(rootDir, "vendored", "7z")).find(
@@ -148,7 +117,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
-  afterPack: (context) => afterPack(context, voicevoxEngineSource),
+  afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -215,5 +184,23 @@ const builderOptions: ElectronBuilderConfiguration = {
     icon: "build/icons/icon-dmg.icns",
   },
 };
+
+/** 環境変数からVOICEVOX ENGINEの配置設定を得る */
+function parseVoicevoxEnginePlacementFromEnv(
+  modeValue: string | undefined,
+  directory: string | undefined,
+): VoicevoxEnginePlacement {
+  const hasDirectoryValue = directory != undefined && directory !== "";
+  const mode = modeValue ?? "none";
+
+  if (mode === "none" && !hasDirectoryValue) {
+    return { mode };
+  }
+  if ((mode === "copy" || mode === "move") && hasDirectoryValue) {
+    return { mode, directory };
+  }
+
+  throw new Error("VOICEVOX ENGINEの配置設定が不正です");
+}
 
 export default builderOptions;
