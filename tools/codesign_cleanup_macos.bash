@@ -11,4 +11,3 @@ if [ ! -v APPLE_API_KEY ]; then
 fi
 
 rm "$APPLE_API_KEY"
-rmdir "${APPLE_API_KEY%/*}"
