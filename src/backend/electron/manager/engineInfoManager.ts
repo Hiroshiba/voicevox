@@ -91,28 +91,68 @@ export class EngineInfoManager {
    */
   private fetchEnvEngineInfos(): EngineInfo[] {
     // TODO: envから直接ではなく、envに書いたengine_manifest.jsonから情報を得るようにする
-    return this.envEngineInfos
-      .filter((engineInfo) => engineInfo.type !== "downloadVvpp")
-      .map((engineInfo) => {
-        const { protocol, hostname, port, pathname } = new URL(engineInfo.host);
-        return {
+    return this.envEngineInfos.flatMap((engineInfo) => {
+      if (engineInfo.executionFilePath == undefined) {
+        return [];
+      }
+
+      const executionFilePath = path.resolve(engineInfo.executionFilePath);
+      const embeddedEngineInfo =
+        engineInfo.latestUrl != undefined && engineInfo.executionEnabled
+          ? this.loadEmbeddedEngineInfo(engineInfo.uuid, executionFilePath)
+          : undefined;
+      if (
+        engineInfo.latestUrl != undefined &&
+        engineInfo.executionEnabled &&
+        embeddedEngineInfo == undefined
+      ) {
+        return [];
+      }
+
+      const { protocol, hostname, port, pathname } = new URL(engineInfo.host);
+      return [
+        {
           ...engineInfo,
           protocol,
           hostname,
           defaultPort: port,
           pathname: pathname === "/" ? "" : pathname,
           isDefault: this.isDefaultEngine(engineInfo.uuid),
-          type: engineInfo.type,
+          type: "path",
           // .envで指定された相対パスをカレントディレクトリ基準の絶対パスにするため、path.resolveを使う。
-          executionFilePath: path.resolve(engineInfo.executionFilePath),
+          executionFilePath:
+            embeddedEngineInfo?.executionFilePath ?? executionFilePath,
           // .envのpathには絶対パスを指定してdefaultEngineDirの外を指すこともできるようにしたいため、path.resolveを使う。
           path:
-            engineInfo.path == undefined
+            embeddedEngineInfo?.path ??
+            (engineInfo.path == undefined
               ? undefined
-              : path.resolve(this.defaultEngineDir, engineInfo.path),
-          version: "999.999.999", // FIXME: ダミー値。使わないため問題ない。engine_manifest.jsonから取得すべき。
-        } satisfies EngineInfo;
-      });
+              : path.resolve(this.defaultEngineDir, engineInfo.path)),
+          version: embeddedEngineInfo?.version ?? "999.999.999", // FIXME: ダミー値。使わないため問題ない。engine_manifest.jsonから取得すべき。
+        } satisfies EngineInfo,
+      ];
+    });
+  }
+
+  /** 埋め込みエンジンの情報を読み込み、UUIDを確認する。 */
+  private loadEmbeddedEngineInfo(
+    engineId: EngineId,
+    executionFilePath: string,
+  ): EngineInfo | undefined {
+    if (!fs.existsSync(executionFilePath)) {
+      return undefined;
+    }
+
+    const result = this.loadEngineInfo(path.dirname(executionFilePath), "path");
+    if (!result.ok) {
+      throw result.error;
+    }
+    if (result.value.uuid !== engineId) {
+      throw new Error(
+        `埋め込みエンジンのUUIDが一致しません。期待値: ${engineId}、実際の値: ${result.value.uuid}`,
+      );
+    }
+    return result.value;
   }
 
   /**
@@ -179,7 +219,13 @@ export class EngineInfoManager {
       ...this.fetchVvppEngineInfos(),
       ...this.fetchRegisteredEngineInfos(),
     ];
-    return engineInfos;
+    const engineInfosById = new Map<EngineId, EngineInfo>();
+    for (const engineInfo of engineInfos) {
+      if (!engineInfosById.has(engineInfo.uuid)) {
+        engineInfosById.set(engineInfo.uuid, engineInfo);
+      }
+    }
+    return [...engineInfosById.values()];
   }
 
   /**

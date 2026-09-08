@@ -186,7 +186,7 @@ export class EngineAndVvppController {
    */
   private getDownloadableEnvEngineInfos() {
     return loadEnvEngineInfos().filter(
-      (engineInfo) => engineInfo.type === "downloadVvpp",
+      (engineInfo) => engineInfo.latestUrl != undefined,
     );
   }
 
@@ -280,6 +280,10 @@ export class EngineAndVvppController {
     );
 
     const latestUrl = envEngineInfo.latestUrl;
+    assertNonNullable(
+      latestUrl,
+      `Latest URL not found for engineId: ${engineId}`,
+    );
 
     let latestInfo: Awaited<ReturnType<typeof fetchLatestDefaultEngineInfo>>;
     try {

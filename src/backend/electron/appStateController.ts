@@ -6,6 +6,7 @@ import { getWelcomeWindowManager } from "./manager/windowManager/welcome";
 import { ExhaustiveError } from "@/type/utility";
 import { createLogger } from "@/helpers/log";
 import { Mutex } from "@/helpers/mutex";
+import type { WelcomeWindowLaunchContext } from "@/domain/welcome";
 
 const log = createLogger("AppStateController");
 
@@ -41,16 +42,29 @@ export class AppStateController {
       await this.launchEngineAndMainWindow();
     } else {
       log.info("No default engine found. Launching welcome window.");
-      await this.launchWelcomeWindow();
+      const engineIds =
+        engineAndVvppController.getDownloadableDefaultEnginePackageIds();
+      if (engineIds.length === 0) {
+        throw new Error("ダウンロード可能なデフォルトエンジンIDがありません。");
+      }
+      if (engineIds.length > 1) {
+        await this.launchWelcomeWindow({ type: "initialSetupSelection" });
+        return;
+      }
+      const [engineId] = engineIds;
+      await this.launchWelcomeWindow({ type: "initialSetup", engineId });
     }
   }
 
   /** メインウィンドウに切り替える。 */
   async switchToMainWindow() {
+    const welcomeWindowManager = getWelcomeWindowManager();
+    if (welcomeWindowManager.isEngineInstallationInProgress()) {
+      throw new Error("エンジンのインストール中はMainへ切り替えられません。");
+    }
     log.info("Switching to main window");
     this.quitState = "switch";
 
-    const welcomeWindowManager = getWelcomeWindowManager();
     if (welcomeWindowManager.isInitialized()) {
       log.info("Destroying welcome window");
       welcomeWindowManager.destroyWindow();
@@ -73,15 +87,15 @@ export class AppStateController {
       await engineAndVvppController.cleanupEngines();
     }
 
-    await this.launchWelcomeWindow();
+    await this.launchWelcomeWindow({ type: "manual" });
     this.quitState = "unconfirmed";
   }
 
-  private async launchWelcomeWindow() {
+  private async launchWelcomeWindow(context: WelcomeWindowLaunchContext) {
     this.activeWindow = "welcome";
 
     const welcomeWindowManager = getWelcomeWindowManager();
-    await welcomeWindowManager.createWindow();
+    await welcomeWindowManager.createWindow(context);
   }
 
   private async launchEngineAndMainWindow() {
@@ -175,6 +189,11 @@ export class AppStateController {
 
   /** 編集状態に関わらず終了する */
   shutdown() {
+    const welcomeWindowManager = getWelcomeWindowManager();
+    if (welcomeWindowManager.isEngineInstallationInProgress()) {
+      log.info("Engine installation is in progress. Preventing shutdown.");
+      return;
+    }
     const mainWindowManager = getMainWindowManager();
     this.quitState = "dirty";
     if (mainWindowManager.isInitialized()) {

@@ -5,6 +5,7 @@ import type {
 } from "@/domain/enginePackage";
 import type { EngineId } from "@/type/preload";
 import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
+import type { WelcomeWindowLaunchContext } from "@/domain/welcome";
 
 /**
  * invoke, handle
@@ -34,6 +35,10 @@ export type WelcomeIpcIHData = {
   GET_ENGINE_PACKAGE_LATEST_INFO: {
     args: [obj: { engineId: EngineId }];
     return: EnginePackageLatestInfo;
+  };
+  GET_WELCOME_WINDOW_LAUNCH_CONTEXT: {
+    args: [];
+    return: WelcomeWindowLaunchContext;
   };
 
   GET_CURRENT_THEME: {

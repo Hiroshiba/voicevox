@@ -19,43 +19,47 @@ class WelcomeIpcMainHandleManager {
     return {
       INSTALL_ENGINE: async (_, obj) => {
         const welcomeWindowManager = getWelcomeWindowManager();
-        const status =
-          await engineAndVvppController.fetchEnginePackageLatestInfo(
-            obj.engineId,
+        welcomeWindowManager.beginEngineInstallation(obj.engineId);
+        try {
+          const status =
+            await engineAndVvppController.fetchEnginePackageLatestInfo(
+              obj.engineId,
+            );
+
+          let lastUpdateTime = 0;
+          let lastLogTime = 0;
+          const targetPackageInfo = status.availableRuntimeTargets.find(
+            (targetInfo) => targetInfo.target === obj.target,
+          );
+          assertNonNullable(
+            targetPackageInfo,
+            `Runtime target not found for engineId: ${obj.engineId}, target: ${obj.target}`,
           );
 
-        // ダウンロードしてインストールする
-        let lastUpdateTime = 0;
-        let lastLogTime = 0;
-        const targetPackageInfo = status.availableRuntimeTargets.find(
-          (targetInfo) => targetInfo.target === obj.target,
-        );
-        assertNonNullable(
-          targetPackageInfo,
-          `Runtime target not found for engineId: ${obj.engineId}, target: ${obj.target}`,
-        );
-
-        await engineAndVvppController.downloadAndInstallVvppEngine(
-          app.getPath("downloads"),
-          targetPackageInfo.packageInfo,
-          {
-            onProgress: ({ type, progress }) => {
-              if (Date.now() - lastUpdateTime > 100) {
-                lastUpdateTime = Date.now();
-                welcomeWindowManager.ipc.UPDATE_ENGINE_DOWNLOAD_PROGRESS({
-                  engineId: obj.engineId,
-                  progress,
-                  type,
-                });
-              } else if (Date.now() - lastLogTime > 1000) {
-                lastLogTime = Date.now();
-                log.info(
-                  `Engine ${obj.engineId} ${type} progress: ${progress.toFixed(2)}%`,
-                );
-              }
+          await engineAndVvppController.downloadAndInstallVvppEngine(
+            app.getPath("downloads"),
+            targetPackageInfo.packageInfo,
+            {
+              onProgress: ({ type, progress }) => {
+                if (Date.now() - lastUpdateTime > 100) {
+                  lastUpdateTime = Date.now();
+                  welcomeWindowManager.sendEngineDownloadProgress({
+                    engineId: obj.engineId,
+                    progress,
+                    type,
+                  });
+                } else if (Date.now() - lastLogTime > 1000) {
+                  lastLogTime = Date.now();
+                  log.info(
+                    `Engine ${obj.engineId} ${type} progress: ${progress.toFixed(2)}%`,
+                  );
+                }
+              },
             },
-          },
-        );
+          );
+        } finally {
+          welcomeWindowManager.endEngineInstallation(obj.engineId);
+        }
       },
       GET_DOWNLOADABLE_DEFAULT_ENGINE_PACKAGE_IDS: () => {
         return engineAndVvppController.getDownloadableDefaultEnginePackageIds();
@@ -75,6 +79,10 @@ class WelcomeIpcMainHandleManager {
           obj.engineId,
         );
       },
+      GET_WELCOME_WINDOW_LAUNCH_CONTEXT: () => {
+        const welcomeWindowManager = getWelcomeWindowManager();
+        return welcomeWindowManager.getLaunchContext();
+      },
       GET_CURRENT_THEME: async () => {
         return configManager.get("currentTheme");
       },
@@ -90,6 +98,10 @@ class WelcomeIpcMainHandleManager {
         welcomeWindowManager.toggleMaximizeWindow();
       },
       CLOSE_WINDOW: () => {
+        const welcomeWindowManager = getWelcomeWindowManager();
+        if (welcomeWindowManager.isEngineInstallationInProgress()) {
+          return;
+        }
         appStateController.shutdown();
       },
       IS_MAXIMIZED_WINDOW: () => {

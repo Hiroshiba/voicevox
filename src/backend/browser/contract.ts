@@ -1,15 +1,22 @@
 import { loadEnvEngineInfos } from "@/domain/defaultEngine/envEngineInfo";
 import type { EngineInfo } from "@/type/preload";
+import { assertNonNullable } from "@/type/utility";
 
-const baseEngineInfo = loadEnvEngineInfos()[0];
-if (baseEngineInfo.type != "path") {
-  throw new Error("default engine type must be path");
-}
+const baseEngineInfo = loadEnvEngineInfos().at(0);
+assertNonNullable(
+  baseEngineInfo,
+  "ブラウザ版のデフォルトエンジンがありません。",
+);
+assertNonNullable(
+  baseEngineInfo.executionFilePath,
+  "ブラウザ版のデフォルトエンジンに実行ファイルが指定されていません。",
+);
 
 export const defaultEngine: EngineInfo = (() => {
   const { protocol, hostname, port, pathname } = new URL(baseEngineInfo.host);
   return {
     ...baseEngineInfo,
+    executionFilePath: baseEngineInfo.executionFilePath,
     protocol,
     hostname,
     defaultPort: port,

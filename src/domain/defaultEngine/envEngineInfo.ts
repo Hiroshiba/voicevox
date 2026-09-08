@@ -15,21 +15,15 @@ const envEngineInfoSchema = z
     name: z.string(),
     executionEnabled: z.boolean(),
     executionArgs: z.array(z.string()),
+    executionFilePath: z.string().optional(),
+    path: z.string().optional(),
+    latestUrl: z.string().optional(),
   })
-  .and(
-    z.union([
-      // エンジンをパス指定する場合
-      z.object({
-        type: z.literal("path").default("path"),
-        executionFilePath: z.string(),
-        path: z.string().optional(),
-      }),
-      // VVPPダウンロードする場合
-      z.object({
-        type: z.literal("downloadVvpp"),
-        latestUrl: z.string(),
-      }),
-    ]),
+  .refine(
+    (engineInfo) =>
+      engineInfo.executionFilePath != undefined ||
+      engineInfo.latestUrl != undefined,
+    "executionFilePathまたはlatestUrlのいずれかが必要です。",
   );
 type EnvEngineInfo = z.infer<typeof envEngineInfoSchema>;
 

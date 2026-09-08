@@ -5,11 +5,22 @@ import type {
   EnginePackageCurrentInfo,
   EnginePackageLatestInfo,
 } from "@/domain/enginePackage";
-import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
+import {
+  getDefaultRuntimeTarget,
+  type RuntimeTarget,
+} from "@/domain/defaultEngine/latestDefaultEngine";
+import {
+  welcomeWindowLaunchContextSchema,
+  type WelcomeWindowLaunchContext,
+} from "@/domain/welcome";
 import { setThemeToCss } from "@/domain/dom";
 import { themes } from "@/domain/theme";
 import type { EngineId } from "@/type/preload";
-import { assertNonNullable, UnreachableError } from "@/type/utility";
+import {
+  assertNonNullable,
+  ExhaustiveError,
+  UnreachableError,
+} from "@/type/utility";
 import { showErrorDialog } from "@/components/Dialog/Dialog";
 
 type LatestInfoState =
@@ -78,6 +89,12 @@ type EngineState = {
   >;
 };
 
+type AutomaticInstallState =
+  | { type: "disabled" }
+  | { type: "waiting"; engineId: EngineId };
+
+type InstallResult = { type: "succeeded" } | { type: "failed"; error: unknown };
+
 export type LaunchEditorState =
   | { enabled: true }
   | { enabled: false; reason: string };
@@ -85,6 +102,9 @@ export type LaunchEditorState =
 function createWelcomeStore() {
   const allEngineState = ref<AllEngineState>({
     type: "uninitialized",
+  });
+  const automaticInstallState = ref<AutomaticInstallState>({
+    type: "disabled",
   });
 
   const launchEditorState = computed<LaunchEditorState>(() => {
@@ -120,20 +140,6 @@ function createWelcomeStore() {
     }
     return { enabled: true };
   });
-
-  const getDefaultRuntimeTarget = (
-    engineId: EngineId,
-    latestInfo: EnginePackageLatestInfo,
-  ): RuntimeTarget => {
-    const defaultRuntimeTargetInfo = latestInfo.availableRuntimeTargets.find(
-      (targetInfo) => targetInfo.packageInfo.displayInfo.default,
-    );
-    assertNonNullable(
-      defaultRuntimeTargetInfo,
-      `Default runtime target not found: engineId=${engineId}`,
-    );
-    return defaultRuntimeTargetInfo.target;
-  };
 
   const getSelectedRuntimeTarget = (engineId: EngineId): RuntimeTarget => {
     if (allEngineState.value.type !== "loaded") {
@@ -192,6 +198,28 @@ function createWelcomeStore() {
     engineState.latestInfo.progress = progressInfo;
   };
 
+  const getInitialRuntimeTarget = (
+    engineId: EngineId,
+    latestInfo: EnginePackageLatestInfo,
+  ): RuntimeTarget => {
+    const automaticInstall = automaticInstallState.value;
+    if (
+      automaticInstall.type === "waiting" &&
+      automaticInstall.engineId === engineId
+    ) {
+      return getDefaultRuntimeTarget(engineId, latestInfo);
+    }
+
+    const defaultRuntimeTargetInfo = latestInfo.availableRuntimeTargets.find(
+      (targetInfo) => targetInfo.packageInfo.displayInfo.default,
+    );
+    assertNonNullable(
+      defaultRuntimeTargetInfo,
+      `推奨ランタイムターゲットがありません。エンジンID: ${engineId}`,
+    );
+    return defaultRuntimeTargetInfo.target;
+  };
+
   const loadEngineEmbeddedInfos = async () => {
     allEngineState.value = { type: "loading" };
 
@@ -215,8 +243,13 @@ function createWelcomeStore() {
       engineStates,
     };
 
-    for (const engineId of engineIds) {
-      void fetchCurrentEngineInfo(engineId);
+    await Promise.all(
+      engineIds.map((engineId) => fetchCurrentEngineInfo(engineId)),
+    );
+
+    const automaticInstall = automaticInstallState.value;
+    if (automaticInstall.type === "waiting") {
+      await maybeStartAutomaticInstall(automaticInstall.engineId);
     }
   };
 
@@ -228,7 +261,7 @@ function createWelcomeStore() {
       await window.welcomeBackend.getEnginePackageCurrentInfo(engineId);
     const engineState = allEngineState.value.engineStates[engineId];
     engineState.currentInfo = currentInfo;
-    void fetchEngineLatestInfo(engineId);
+    await fetchEngineLatestInfo(engineId);
   };
 
   const fetchEngineLatestInfo = async (engineId: EngineId) => {
@@ -244,7 +277,7 @@ function createWelcomeStore() {
         type: "fetched",
         info,
         progress: { type: "idle" },
-        selectedRuntimeTarget: getDefaultRuntimeTarget(engineId, info),
+        selectedRuntimeTarget: getInitialRuntimeTarget(engineId, info),
       };
     } catch (error) {
       window.welcomeBackend.logWarn(
@@ -255,7 +288,9 @@ function createWelcomeStore() {
         type: "fetchError",
         error,
       };
+      return;
     }
+    await maybeStartAutomaticInstall(engineId);
   };
 
   const applyThemeFromConfig = async () => {
@@ -265,10 +300,19 @@ function createWelcomeStore() {
     setThemeToCss(theme);
   };
 
-  const installEngine = async (engineId: EngineId) => {
-    const target = getSelectedRuntimeTarget(engineId);
-    setEngineProgress(engineId, { type: "download", progress: 0 });
+  const runInstallEngine = async (
+    engineId: EngineId,
+    target: RuntimeTarget,
+  ): Promise<InstallResult> => {
+    let started = false;
     try {
+      if (getEngineProgress(engineId).type !== "idle") {
+        throw new Error(
+          `エンジンパッケージのインストールがすでに実行中です。エンジンID: ${engineId}`,
+        );
+      }
+      setEngineProgress(engineId, { type: "download", progress: 0 });
+      started = true;
       window.welcomeBackend.logInfo(
         `Engine package ${engineId} installation started.`,
       );
@@ -276,16 +320,85 @@ function createWelcomeStore() {
       window.welcomeBackend.logInfo(
         `Engine package ${engineId} installation completed.`,
       );
+      return { type: "succeeded" };
     } catch (error) {
       window.welcomeBackend.logError(
         `Engine package ${engineId} installation failed`,
         error,
       );
-      await showErrorDialog("エンジンのインストールに失敗しました", error);
+      return { type: "failed", error };
     } finally {
-      setEngineProgress(engineId, { type: "idle" });
-      void fetchCurrentEngineInfo(engineId);
+      if (started) {
+        setEngineProgress(engineId, { type: "idle" });
+      }
     }
+  };
+
+  const installEngine = async (engineId: EngineId) => {
+    const target = getSelectedRuntimeTarget(engineId);
+    const automaticInstall = automaticInstallState.value;
+    if (
+      automaticInstall.type === "waiting" &&
+      automaticInstall.engineId === engineId
+    ) {
+      automaticInstallState.value = { type: "disabled" };
+    }
+
+    const result = await runInstallEngine(engineId, target);
+    if (result.type === "failed") {
+      await showErrorDialog(
+        "エンジンのインストールに失敗しました",
+        result.error,
+      );
+      return;
+    }
+
+    try {
+      await fetchCurrentEngineInfo(engineId);
+    } catch (error) {
+      window.welcomeBackend.logError(
+        `Engine package ${engineId} current info refresh failed`,
+        error,
+      );
+      await showErrorDialog("エンジン情報の更新に失敗しました", error);
+    }
+  };
+
+  const maybeStartAutomaticInstall = async (
+    engineId: EngineId,
+  ): Promise<void> => {
+    const automaticInstall = automaticInstallState.value;
+    if (
+      automaticInstall.type !== "waiting" ||
+      automaticInstall.engineId !== engineId
+    ) {
+      return;
+    }
+    if (allEngineState.value.type !== "loaded") {
+      throw new UnreachableError();
+    }
+
+    const engineState = allEngineState.value.engineStates[engineId];
+    if (engineState.currentInfo.status === "installed") {
+      automaticInstallState.value = { type: "disabled" };
+      return;
+    }
+    if (engineState.latestInfo.type !== "fetched") {
+      return;
+    }
+
+    const target = engineState.latestInfo.selectedRuntimeTarget;
+    automaticInstallState.value = { type: "disabled" };
+    const result = await runInstallEngine(engineId, target);
+    if (result.type === "failed") {
+      await showErrorDialog(
+        "エンジンのインストールに失敗しました",
+        result.error,
+      );
+      return;
+    }
+
+    await window.welcomeBackend.launchMainWindow();
   };
 
   const switchToMainWindow = () => {
@@ -295,14 +408,34 @@ function createWelcomeStore() {
     void window.welcomeBackend.launchMainWindow();
   };
 
-  const initialize = () => {
+  const initialize = async () => {
+    const launchContext: WelcomeWindowLaunchContext =
+      welcomeWindowLaunchContextSchema.parse(
+        await window.welcomeBackend.getWelcomeWindowLaunchContext(),
+      );
+    switch (launchContext.type) {
+      case "initialSetup":
+        automaticInstallState.value = {
+          type: "waiting",
+          engineId: launchContext.engineId,
+        };
+        break;
+      case "initialSetupSelection":
+      case "manual":
+        automaticInstallState.value = { type: "disabled" };
+        break;
+      default:
+        throw new ExhaustiveError(launchContext);
+    }
     window.welcomeBackend.registerIpcHandler({
       updateEngineDownloadProgress: ({ engineId, progress, type }) => {
+        if (getEngineProgress(engineId).type === "idle") {
+          return;
+        }
         setEngineProgress(engineId, { progress, type });
       },
     });
-    void loadEngineEmbeddedInfos();
-    void applyThemeFromConfig();
+    await Promise.all([loadEngineEmbeddedInfos(), applyThemeFromConfig()]);
   };
 
   return {
