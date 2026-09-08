@@ -675,3 +675,25 @@ jobs:
           else
             pnpm exec playwright test --config playwright.installed.config.ts
           fi
+
+      - name: Uninstall Linux application
+        if: runner.os == 'Linux'
+        run: bash "${APP_DIR}/uninstaller_linux.sh"
+
+      # NOTE: public/howtouse.md の手順に従い、CI ではゴミ箱の代わりに VOICEVOX.app と追加エンジンを完全削除する。
+      - name: Uninstall macOS application
+        if: runner.os == 'macOS'
+        run: |
+          rm -r \
+            "${APP_DIR}/VOICEVOX.app" \
+            "${HOME}/Library/Application Support/voicevox/vvpp-engines"
+
+      # NOTE: _?= で NSIS の一時コピーを止めて終了を待ち、実行中に削除できないアンインストーラー自身を終了後に削除する。
+      - name: Uninstall Windows application
+        if: runner.os == 'Windows'
+        run: |
+          MSYS2_ARG_CONV_EXCL='/S;--delete-app-data;_?=' \
+            "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")" \
+            /S --delete-app-data "_?=$(cygpath -w "$APP_DIR")"
+          rm "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")"
+          rmdir "$(cygpath -u "$APP_DIR")"
