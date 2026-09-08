@@ -559,16 +559,28 @@ jobs:
           pnpm run electron:build:pack --prepackaged prepackage/
 
       - name: Build Electron (for macOS)
-        if: endsWith(matrix.installer_artifact_name, '-dmg') # macOS
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing == 'true' # macOS
         env:
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
-          CSC_LINK: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_P12_BASE64 || '' }}
-          CSC_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_P12_PASSWORD || '' }}
-          CSC_INSTALLER_LINK: ${{ startsWith(matrix.os, 'macos-') && matrix.voicevox_engine_asset_name != null && github.event.inputs.code_signing == 'true' && secrets.APPLE_INSTALLER_P12_BASE64 || '' }}
-          CSC_INSTALLER_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && matrix.voicevox_engine_asset_name != null && github.event.inputs.code_signing == 'true' && secrets.APPLE_INSTALLER_P12_PASSWORD || '' }}
-          APPLE_API_KEY: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && env.APPLE_API_KEY_PATH || '' }}
-          APPLE_API_KEY_ID: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_API_KEY_ID || '' }}
-          APPLE_API_ISSUER: ${{ startsWith(matrix.os, 'macos-') && github.event.inputs.code_signing == 'true' && secrets.APPLE_API_ISSUER || '' }}
+          CSC_LINK: ${{ secrets.APPLE_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_P12_PASSWORD }}
+          CSC_INSTALLER_LINK: ${{ matrix.voicevox_engine_asset_name != null && secrets.APPLE_INSTALLER_P12_BASE64 || '' }}
+          CSC_INSTALLER_KEY_PASSWORD: ${{ matrix.voicevox_engine_asset_name != null && secrets.APPLE_INSTALLER_P12_PASSWORD || '' }}
+          APPLE_API_KEY: ${{ env.APPLE_API_KEY_PATH }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
+            pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app --mac dmg pkg
+          else
+            pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
+          fi
+
+      # CSC_LINKの空文字も証明書パスとして解釈されるため、署名なしのPKG生成には署名用環境変数を渡さない。
+      - name: Build Electron (for macOS without code signing)
+        if: endsWith(matrix.installer_artifact_name, '-dmg') && github.event.inputs.code_signing != 'true' # macOS
+        env:
+          MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
         run: |
           if [[ "${{ matrix.voicevox_engine_asset_name != null }}" == "true" ]]; then
             pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app --mac dmg pkg
