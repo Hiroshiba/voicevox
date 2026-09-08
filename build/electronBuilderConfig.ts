@@ -46,8 +46,6 @@ const isMac = process.platform === "darwin";
 
 const isArm64 = process.arch === "arm64";
 
-const isMacCodeSigning = isMac && (process.env.CSC_LINK ?? "").length > 0;
-
 // electron-builderのextraFilesは、ファイルのコピー先としてVOICEVOX.app/Contents/を使用する。
 // しかし、実行ファイルはVOICEVOX.app/Contents/MacOS/にあるため、extraFilesをVOICEVOX.app/Contents/ディレクトリにコピーするのは正しくない。
 // VOICEVOX.app/Contents/MacOS/ディレクトリにコピーされるように修正する。
@@ -176,9 +174,6 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    // 正式署名時はundefinedで署名Identityを未指定にし、Electron Builderに自動検出させる。
-    // 正式署名しない場合はnullで署名を無効化し、完成したアプリを後段でad hoc署名する。
-    identity: isMacCodeSigning ? undefined : null,
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
