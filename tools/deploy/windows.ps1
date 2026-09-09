@@ -41,13 +41,15 @@ function Get-AbsolutePath {
   )
 
   if ([string]::IsNullOrWhiteSpace($Value)) {
-    throw "$Nameを指定してください。"
+    throw "${Name}を指定してください。"
   }
   if ($Value -match '["\r\n]') {
-    throw "$Nameに使用できない文字が含まれています。"
+    throw "${Name}に使用できない文字が含まれています。"
   }
-  if (-not [System.IO.Path]::IsPathRooted($Value)) {
-    throw "$Nameには絶対パスを指定してください。"
+  $hasDriveAbsolutePrefix = $Value -match '^[A-Za-z]:[\\/]'
+  $hasUncPrefix = $Value -match '^(?:\\\\|//)[^\\/]+[\\/][^\\/]+'
+  if (-not ($hasDriveAbsolutePrefix -or $hasUncPrefix)) {
+    throw "${Name}には絶対パスを指定してください。"
   }
   return [System.IO.Path]::GetFullPath($Value)
 }
@@ -62,7 +64,7 @@ function Get-AbsoluteDirectoryPath {
   $root = [System.IO.Path]::GetPathRoot($path)
   $trimmedPath = $path.TrimEnd([char[]]@("\", "/"))
   if ($trimmedPath -ieq $root.TrimEnd([char[]]@("\", "/"))) {
-    throw "$Nameにドライブまたは共有のルートは指定できません。"
+    throw "${Name}にドライブまたは共有のルートは指定できません。"
   }
   return $trimmedPath
 }
@@ -158,10 +160,10 @@ function Get-ExistingFilePath {
 
   $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
   if ($item.PSIsContainer) {
-    throw "$Nameが通常ファイルではありません。パス: $Path"
+    throw "${Name}が通常ファイルではありません。パス: $Path"
   }
   if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw "$Nameに再解析点は指定できません。パス: $Path"
+    throw "${Name}に再解析点は指定できません。パス: $Path"
   }
   return $item.FullName
 }
@@ -174,7 +176,7 @@ function Get-ExistingDirectoryPath {
 
   $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
   if (-not $item.PSIsContainer) {
-    throw "$Nameがディレクトリではありません。パス: $Path"
+    throw "${Name}がディレクトリではありません。パス: $Path"
   }
   Assert-SafeDirectoryPath $item.FullName
   return $item.FullName.TrimEnd([char[]]@("\", "/"))
@@ -202,7 +204,7 @@ function Get-RequiredStringProperty {
   )
 
   if ($Object -eq $null) {
-    throw "$Descriptionがありません。項目: $PropertyName"
+    throw "${Description}がありません。項目: $PropertyName"
   }
   $property = $Object.PSObject.Properties[$PropertyName]
   if (
@@ -210,7 +212,7 @@ function Get-RequiredStringProperty {
     ($property.Value -isnot [string]) -or
     [string]::IsNullOrWhiteSpace([string]$property.Value)
   ) {
-    throw "$Descriptionの文字列が不正です。項目: $PropertyName"
+    throw "${Description}の文字列が不正です。項目: $PropertyName"
   }
   return [string]$property.Value
 }
