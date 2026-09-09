@@ -9,6 +9,7 @@ import {
   readVoicevoxDeploymentReceipt,
   type VoicevoxDeploymentReceipt,
 } from "./voicevoxDeploymentReceipt";
+import { readVvppEngineMetadata } from "./vvppEngineMetadata";
 import {
   type EngineInfo,
   type EngineDirValidationResult,
@@ -74,7 +75,10 @@ export class EngineInfoManager {
   private loadEngineInfo(
     engineDir: string,
     type: "vvpp" | "path",
-  ): Result<EngineInfo, "manifestNotFound" | "manifestParseError"> {
+  ): Result<
+    EngineInfo,
+    "manifestNotFound" | "manifestParseError" | "metadataParseError"
+  > {
     const manifestPath = path.join(engineDir, "engine_manifest.json");
     if (!fs.existsSync(manifestPath)) {
       return failure("manifestNotFound", new Error("manifest not found"));
@@ -92,6 +96,17 @@ export class EngineInfoManager {
     }
 
     const [command, ...args] = shlex.split(manifest.command);
+    let target: EngineInfo["target"];
+    if (type === "vvpp") {
+      try {
+        target = readVvppEngineMetadata(engineDir)?.target;
+      } catch (e) {
+        return failure(
+          "metadataParseError",
+          e instanceof Error ? e : new Error("metadata parse error"),
+        );
+      }
+    }
 
     return success({
       uuid: manifest.uuid,
@@ -107,6 +122,7 @@ export class EngineInfoManager {
       type,
       isDefault: this.isDefaultEngine(manifest.uuid),
       version: manifest.version,
+      ...(target == undefined ? {} : { target }),
     } satisfies EngineInfo);
   }
 
@@ -146,6 +162,9 @@ export class EngineInfoManager {
     const receipt = readVoicevoxDeploymentReceipt(applicationPath);
     if (receipt == undefined) {
       return undefined;
+    }
+    if (!this.isDefaultEngine(receipt.engine.uuid)) {
+      throw new Error("配置情報のエンジンがデフォルトエンジンではありません。");
     }
 
     const result = this.loadEngineInfo(receipt.engine.path, "path");

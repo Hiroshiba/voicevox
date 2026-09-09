@@ -6,6 +6,7 @@ import { createVvppFile } from "./helper";
 import { EngineId, type MinimumEngineManifestType } from "@/type/preload";
 import VvppManager from "@/backend/electron/manager/vvppManager";
 import { uuid4 } from "@/helpers/random";
+import { assertNonNullable } from "@/type/utility";
 
 interface Context {
   vvppEngineDir: string;
@@ -67,6 +68,30 @@ test<Context>("エンジンをインストールできる", async ({
   await manager.install({ extractedEngineFiles, immediate: true });
   expect(getEngineDirInfos(vvppEngineDir).length).toBe(1);
   await expect(extractedEngineFiles.needsCleanup()).resolves.toBe(false);
+});
+
+test<Context>("エンジンの導入ターゲットを保存できる", async ({ manager }) => {
+  const targetName = "perfect.vvpp";
+  const vvppFilePath = await createVvppFile(targetName, tmpDir);
+
+  await manager.install({
+    extractedEngineFiles: await manager.extract(vvppFilePath),
+    immediate: true,
+    target: "linux-x64-cpu",
+  });
+
+  const engineDir = await manager.getInstalledEngineDir(
+    EngineId("00000000-0000-0000-0000-000000000001"),
+  );
+  assertNonNullable(engineDir, "インストールされたエンジンが見つかりません。");
+  expect(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(engineDir, "engine_install_metadata.json"),
+        "utf8",
+      ),
+    ),
+  ).toEqual({ target: "linux-x64-cpu" });
 });
 
 test<Context>("エンジンを２回インストールすると処理が予約され、後で上書きされる", async ({

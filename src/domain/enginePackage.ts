@@ -14,7 +14,13 @@ export type EnginePackageCurrentInfo =
   | {
       status: "installed";
       installedVersion: string;
-      source: "embedded" | "vvpp";
+      source: "embedded";
+    }
+  | {
+      status: "installed";
+      installedVersion: string;
+      source: "vvpp";
+      target?: RuntimeTarget;
     }
   | {
       status: "installed";

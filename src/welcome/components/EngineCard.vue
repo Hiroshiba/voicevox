@@ -21,7 +21,7 @@
       <div
         v-if="
           engineState.currentInfo.status === 'installed' &&
-          engineState.currentInfo.source === 'managed'
+          engineState.currentInfo.source !== 'embedded'
         "
       >
         デバイス：{{ engineTargetText }}
@@ -101,29 +101,24 @@ import { useStore, type EngineProgressInfo } from "@/welcome/store";
 import type { EnginePackageLatestInfo } from "@/domain/enginePackage";
 import { showErrorDialog } from "@/components/Dialog/Dialog";
 
-type KnownRuntimeTarget =
-  | "windows-x64-cpu"
-  | "windows-x64-directml"
-  | "macos-x64-cpu"
-  | "macos-arm64-cpu"
-  | "linux-x64-cpu"
-  | "linux-x64-cuda";
-
 const runtimeTargetLabels = {
-  "windows-x64-cpu": "CPU",
-  "windows-x64-directml": "GPU / CPU",
-  "macos-x64-cpu": "CPU",
-  "macos-arm64-cpu": "CPU",
-  "linux-x64-cpu": "CPU",
-  "linux-x64-cuda": "GPU(CUDA)",
-} satisfies Record<KnownRuntimeTarget, string>;
+  cpu: "CPU",
+  directml: "GPU / CPU",
+  cuda: "GPU(CUDA)",
+} satisfies Record<string, string>;
+
+function isRuntimeTargetDevice(
+  device: string,
+): device is keyof typeof runtimeTargetLabels {
+  return device in runtimeTargetLabels;
+}
 
 function getRuntimeTargetLabel(target: RuntimeTarget): string {
-  const targetEntry = Object.entries(runtimeTargetLabels).find(
-    ([knownTarget]) => knownTarget === target,
-  );
-  assertNonNullable(targetEntry, `未知のRuntime Targetです: ${target}`);
-  return targetEntry[1];
+  const [, , device] = target.split("-");
+  if (!isRuntimeTargetDevice(device)) {
+    throw new Error(`未知のRuntime Targetです: ${target}`);
+  }
+  return runtimeTargetLabels[device];
 }
 
 const props = defineProps<{
@@ -196,11 +191,22 @@ const engineSourceText = computed(() => {
 
 const engineTargetText = computed(() => {
   const currentInfo = engineState.value.currentInfo;
-  if (currentInfo.status !== "installed" || currentInfo.source !== "managed") {
+  if (currentInfo.status !== "installed") {
     return "";
   }
 
-  return getRuntimeTargetLabel(currentInfo.target);
+  switch (currentInfo.source) {
+    case "embedded":
+      return "";
+    case "managed":
+      return getRuntimeTargetLabel(currentInfo.target);
+    case "vvpp":
+      return currentInfo.target == undefined
+        ? "不明"
+        : getRuntimeTargetLabel(currentInfo.target);
+    default:
+      throw new ExhaustiveError(currentInfo);
+  }
 });
 
 const currentEngineStatus = computed<{
@@ -262,6 +268,7 @@ const currentEngineStatus = computed<{
 
 const isControlDisabled = computed(() => {
   return (
+    latestInfo.value.type !== "fetched" ||
     progressInfo.value.type !== "idle" ||
     (engineState.value.currentInfo.status === "installed" &&
       engineState.value.currentInfo.source === "managed")

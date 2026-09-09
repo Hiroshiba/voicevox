@@ -39,6 +39,7 @@ class WelcomeIpcMainHandleManager {
           obj.engineId,
           app.getPath("downloads"),
           targetPackageInfo.packageInfo,
+          obj.target,
           {
             onProgress: ({ type, progress }) => {
               if (Date.now() - lastUpdateTime > 100) {
@@ -75,6 +76,9 @@ class WelcomeIpcMainHandleManager {
         return engineAndVvppController.fetchEnginePackageLatestInfo(
           obj.engineId,
         );
+      },
+      GET_WELCOME_WINDOW_LAUNCH_CONTEXT: () => {
+        return getWelcomeWindowManager().getLaunchContext();
       },
       GET_CURRENT_THEME: async () => {
         return configManager.get("currentTheme");

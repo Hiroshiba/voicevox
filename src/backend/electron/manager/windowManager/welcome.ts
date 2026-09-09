@@ -14,6 +14,7 @@ import { createIpcSendProxy, type IpcSendProxy } from "../../ipc";
 import { getWelcomeIpcMainHandleManager } from "../welcomeIpcMainHandleManager";
 import { themes } from "@/domain/theme";
 import type { WelcomeIpcSOData } from "@/welcome/backend/ipcType";
+import type { WelcomeWindowLaunchContext } from "@/domain/welcome";
 
 type WindowManagerOption = {
   staticDir: string;
@@ -21,12 +22,17 @@ type WindowManagerOption = {
   isTest: boolean;
 };
 
+type LaunchContextState =
+  | { type: "uninitialized" }
+  | { type: "initialized"; context: WelcomeWindowLaunchContext };
+
 class WelcomeWindowManager {
   private _win: BrowserWindow | undefined;
   private _ipc: IpcSendProxy<WelcomeIpcSOData> | undefined;
   private staticDir: string;
   private isDevelopment: boolean;
   private isTest: boolean;
+  private launchContextState: LaunchContextState = { type: "uninitialized" };
 
   constructor(payload: WindowManagerOption) {
     this.staticDir = payload.staticDir;
@@ -65,7 +71,8 @@ class WelcomeWindowManager {
     return this._ipc;
   }
 
-  public async createWindow() {
+  /** Welcomeウィンドウを指定コンテキストで作成する。 */
+  public async createWindow(context: WelcomeWindowLaunchContext) {
     if (this.win != undefined) {
       throw new Error("Window has already been created");
     }
@@ -111,8 +118,10 @@ class WelcomeWindowManager {
     win.on("closed", () => {
       this._win = undefined;
       this._ipc = undefined;
+      this.launchContextState = { type: "uninitialized" };
     });
     this._win = win;
+    this.launchContextState = { type: "initialized", context };
 
     await this.load();
 
@@ -199,6 +208,16 @@ class WelcomeWindowManager {
 
   public destroyWindow() {
     this.getWindow().destroy();
+  }
+
+  /** Welcomeウィンドウの起動コンテキストを取得する。 */
+  public getLaunchContext(): WelcomeWindowLaunchContext {
+    if (this.launchContextState.type === "uninitialized") {
+      throw new Error(
+        "Welcomeウィンドウの起動コンテキストが初期化されていません。",
+      );
+    }
+    return this.launchContextState.context;
   }
 
   public show() {

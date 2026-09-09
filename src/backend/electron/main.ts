@@ -24,8 +24,18 @@ import { initializeIpcMainHandleManager } from "./manager/ipcMainHandleManager";
 import { initializeWelcomeIpcMainHandleManager } from "./manager/welcomeIpcMainHandleManager";
 import { assertNonNullable } from "@/type/utility";
 import type { EngineInfo } from "@/type/preload";
-import { isDevelopment, isMac, isProduction, isTest } from "@/helpers/platform";
+import {
+  isDevelopment,
+  isMac,
+  isProduction,
+  isTest,
+  isWindows,
+} from "@/helpers/platform";
 import { createLogger } from "@/helpers/log";
+import {
+  initialEngineTargetSchema,
+  type InitialEngineTarget,
+} from "@/domain/welcome";
 
 type SingleInstanceLockData = {
   filePath: string | undefined;
@@ -309,7 +319,47 @@ function getArgv(): string[] {
   return [];
 }
 
-let initialFilePath: string | undefined = getArgv()[0]; // TODO: カプセル化する
+type InitialLaunchArguments = {
+  initialFilePath: string | undefined;
+  initialEngineTarget: InitialEngineTarget | undefined;
+};
+
+function parseInitialLaunchArguments(args: string[]): InitialLaunchArguments {
+  const initialEngineTargetPrefix = "--voicevox-initial-engine-target=";
+  let initialFilePath: string | undefined;
+  let initialEngineTarget: InitialEngineTarget | undefined;
+
+  for (const arg of args) {
+    if (arg === "--updated") {
+      continue;
+    }
+    if (!arg.startsWith(initialEngineTargetPrefix)) {
+      if (initialFilePath == undefined) {
+        initialFilePath = arg;
+      }
+      continue;
+    }
+    if (initialEngineTarget != undefined) {
+      throw new Error("初回起動時のエンジンターゲットが重複しています。");
+    }
+    const parsedInitialEngineTarget = initialEngineTargetSchema.parse(
+      arg.slice(initialEngineTargetPrefix.length),
+    );
+    if (!isWindows || process.arch !== "x64") {
+      throw new Error(
+        "初回起動時のエンジン選択はWindows x64でのみ利用できます。",
+      );
+    }
+    initialEngineTarget = parsedInitialEngineTarget;
+  }
+
+  return { initialFilePath, initialEngineTarget };
+}
+
+const initialLaunchArguments = parseInitialLaunchArguments(getArgv());
+let initialFilePath: string | undefined =
+  initialLaunchArguments.initialFilePath;
+const initialEngineTarget = initialLaunchArguments.initialEngineTarget;
 
 const menuTemplateForMac: Electron.MenuItemConstructorOptions[] = [
   {
@@ -485,7 +535,7 @@ void app.whenReady().then(async () => {
     }
   }
 
-  await appStateController.startup();
+  await appStateController.startup(initialEngineTarget);
 });
 
 // 他のプロセスが起動したとき、`requestSingleInstanceLock`経由で`rawData`が送信される。

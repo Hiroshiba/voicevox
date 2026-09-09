@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
 import type { AltPortInfos } from "@/store/type";
 import type { Result } from "@/type/result";
 import {
@@ -258,6 +259,7 @@ export type EngineInfo = {
   name: string;
   path?: string; // エンジンディレクトリのパス
   version: string;
+  target?: RuntimeTarget;
   executionEnabled: boolean;
   executionFilePath: string;
   executionArgs: string[];

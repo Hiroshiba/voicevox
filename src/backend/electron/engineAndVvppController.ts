@@ -14,6 +14,7 @@ import {
 } from "@/type/preload";
 import {
   type PackageInfo,
+  type RuntimeTarget,
   fetchLatestDefaultEngineInfo,
 } from "@/domain/defaultEngine/latestDefaultEngine";
 import { loadEnvEngineInfos } from "@/domain/defaultEngine/envEngineInfo";
@@ -60,9 +61,11 @@ export class EngineAndVvppController {
     vvppPath: string;
     asDefaultVvppEngine: boolean;
     immediate: boolean;
+    target?: RuntimeTarget;
     callbacks?: { onProgress?: ProgressCallback };
   }) {
-    const { vvppPath, asDefaultVvppEngine, immediate, callbacks } = params;
+    const { vvppPath, asDefaultVvppEngine, immediate, target, callbacks } =
+      params;
 
     try {
       const extractedEngineFiles = await this.vvppManager.extract(
@@ -91,7 +94,11 @@ export class EngineAndVvppController {
         );
       }
 
-      await this.vvppManager.install({ extractedEngineFiles, immediate });
+      await this.vvppManager.install({
+        extractedEngineFiles,
+        immediate,
+        target,
+      });
     } catch (e) {
       throw new DisplayableError(
         `${vvppPath} をインストールできませんでした。`,
@@ -226,12 +233,18 @@ export class EngineAndVvppController {
       };
     }
 
+    if (this.engineInfoManager.isEmbeddedEngine(engineId)) {
+      return {
+        status: "installed",
+        installedVersion: installedEngineInfo.version,
+        source: "embedded",
+      };
+    }
     return {
       status: "installed",
       installedVersion: installedEngineInfo.version,
-      source: this.engineInfoManager.isEmbeddedEngine(engineId)
-        ? "embedded"
-        : "vvpp",
+      source: "vvpp",
+      target: installedEngineInfo.target,
     };
   }
 
@@ -352,6 +365,7 @@ export class EngineAndVvppController {
     engineId: EngineId,
     downloadDir: string,
     packageInfo: PackageInfo,
+    target: RuntimeTarget,
     callbacks: { onProgress: ProgressCallback<"download" | "install"> },
   ) {
     if (this.engineInfoManager.isManagedEngine(engineId)) {
@@ -379,6 +393,7 @@ export class EngineAndVvppController {
       vvppPath: downloader.downloadedPaths[0],
       asDefaultVvppEngine: true,
       immediate: true,
+      target,
       callbacks: {
         onProgress: ({ progress }) => {
           callbacks.onProgress({ type: "install", progress });

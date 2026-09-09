@@ -6,6 +6,10 @@ import { getWelcomeWindowManager } from "./manager/windowManager/welcome";
 import { ExhaustiveError } from "@/type/utility";
 import { createLogger } from "@/helpers/log";
 import { Mutex } from "@/helpers/mutex";
+import type {
+  InitialEngineTarget,
+  WelcomeWindowLaunchContext,
+} from "@/domain/welcome";
 
 const log = createLogger("AppStateController");
 
@@ -29,7 +33,7 @@ export class AppStateController {
    * アプリ起動時の初期化処理を行う。
    * ウェルカムウィンドウまたはメインウィンドウのどちらかを起動する。
    */
-  async startup() {
+  async startup(initialEngineTarget?: InitialEngineTarget) {
     const engineAndVvppController = getEngineAndVvppController();
     if (
       !engineAndVvppController.hasDownloadableDefaultEngine() ||
@@ -41,7 +45,18 @@ export class AppStateController {
       await this.launchEngineAndMainWindow();
     } else {
       log.info("No default engine found. Launching welcome window.");
-      await this.launchWelcomeWindow();
+      const engineIds =
+        engineAndVvppController.getDownloadableDefaultEnginePackageIds();
+      if (engineIds.length !== 1) {
+        await this.launchWelcomeWindow({ type: "manual" });
+        return;
+      }
+      const [engineId] = engineIds;
+      const context: WelcomeWindowLaunchContext =
+        initialEngineTarget == undefined
+          ? { type: "initialSetup", engineId }
+          : { type: "initialSetup", engineId, initialEngineTarget };
+      await this.launchWelcomeWindow(context);
     }
   }
 
@@ -73,15 +88,15 @@ export class AppStateController {
       await engineAndVvppController.cleanupEngines();
     }
 
-    await this.launchWelcomeWindow();
+    await this.launchWelcomeWindow({ type: "manual" });
     this.quitState = "unconfirmed";
   }
 
-  private async launchWelcomeWindow() {
+  private async launchWelcomeWindow(context: WelcomeWindowLaunchContext) {
     this.activeWindow = "welcome";
 
     const welcomeWindowManager = getWelcomeWindowManager();
-    await welcomeWindowManager.createWindow();
+    await welcomeWindowManager.createWindow(context);
   }
 
   private async launchEngineAndMainWindow() {

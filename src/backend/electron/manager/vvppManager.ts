@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { dialog } from "electron";
 import type { ExtractedEngineFiles } from "../ExtractedEngineFiles";
+import { writeVvppEngineMetadata } from "./vvppEngineMetadata";
 import type {
   EngineId,
   EngineInfo,
@@ -14,6 +15,7 @@ import { createLogger } from "@/helpers/log";
 import { isWindows } from "@/helpers/platform";
 import { assertNonNullable } from "@/type/utility";
 import { Mutex } from "@/helpers/mutex";
+import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
 
 const log = createLogger("VvppManager");
 
@@ -165,7 +167,15 @@ export class VvppManager {
   async install(params: {
     extractedEngineFiles: ExtractedEngineFiles;
     immediate: boolean;
+    target?: RuntimeTarget;
   }) {
+    const { extractedEngineFiles, target } = params;
+    if (target != undefined) {
+      await writeVvppEngineMetadata(
+        extractedEngineFiles.getExtractedEngineDir(),
+        target,
+      );
+    }
     await using _lock = await this.lock.acquire();
     await this._install(params);
   }
