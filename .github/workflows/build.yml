@@ -596,11 +596,11 @@ jobs:
             echo "APP_DIR=${{ runner.temp }}/voicevox"
           } >> "$GITHUB_ENV"
 
-      - name: Install FUSE and xvfb on Linux
+      - name: Install xvfb on Linux
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 xvfb
+          sudo apt-get install -y xvfb
 
       - name: Download installer
         env:
