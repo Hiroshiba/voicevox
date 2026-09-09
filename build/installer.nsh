@@ -74,10 +74,6 @@
 
   !macro customWelcomePage
     Page custom voicevoxInitialEngineTargetPageShow voicevoxInitialEngineTargetPageLeave
-    !insertmacro voicevoxInitialEngineTargetPageFunctions
-  !macroend
-
-  !macro voicevoxInitialEngineTargetPageFunctions
   Function voicevoxInitialEngineTargetPageShow
     ${If} ${UAC_IsInnerInstance}
     ${AndIf} $voicevoxInitialEngineTargetSkipped != "1"
