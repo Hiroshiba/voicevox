@@ -625,7 +625,8 @@ jobs:
               assert(original != undefined, "baselineにdeviceがありません。");
               const difference = volume.usedBytes - original.usedBytes;
               const differenceMiB = difference / 1024 ** 2;
-              const thresholdMiB = phase === "installed" ? 0 : 5;
+              // NOTE: OSのログ更新も全体容量に含まれるため、アンインストール後の判定には余裕を持たせる。
+              const thresholdMiB = phase === "installed" ? 0 : 64;
               // TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
               const expectIncrease = phase === "installed" || process.platform === "linux";
               const valid = expectIncrease
