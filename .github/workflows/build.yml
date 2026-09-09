@@ -50,7 +50,6 @@ jobs:
         include:
           # Linux (x64)
           - artifact_name: linux-prepackage
-            engine_mode: "download-vvpp"
             artifact_path: dist_electron/linux-unpacked
             package_name: voicevox
             compressed_artifact_name: voicevox-linux
@@ -62,7 +61,6 @@ jobs:
             env_file: .env.download-vvpp
           # Linux (arm64)
           - artifact_name: linux-arm64-prepackage
-            engine_mode: "download-vvpp"
             artifact_path: dist_electron/linux-arm64-unpacked
             package_name: voicevox
             compressed_artifact_name: voicevox-linux-arm64
@@ -74,7 +72,6 @@ jobs:
             env_file: .env.download-vvpp
           # Windows
           - artifact_name: windows-prepackage
-            engine_mode: "download-vvpp"
             artifact_path: dist_electron/win-unpacked
             package_name: voicevox
             compressed_artifact_name: voicevox-windows
@@ -84,7 +81,6 @@ jobs:
             env_file: .env.download-vvpp
           # macOS (x64)
           - artifact_name: macos-x64-prepackage
-            engine_mode: "download-vvpp"
             artifact_path: dist_electron/mac
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-x64
@@ -94,7 +90,6 @@ jobs:
             env_file: .env.download-vvpp
           # macOS (arm64)
           - artifact_name: macos-arm64-prepackage
-            engine_mode: "download-vvpp"
             artifact_path: dist_electron/mac-arm64
             package_name: voicevox
             compressed_artifact_name: voicevox-macos-arm64
@@ -105,7 +100,6 @@ jobs:
 
           # Linux NVIDIA GPU
           - artifact_name: linux-nvidia-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/linux-unpacked
             voicevox_engine_asset_name: linux-nvidia
             package_name: voicevox-cuda
@@ -118,7 +112,6 @@ jobs:
             env_file: .env.embed-engine.linux
           # Linux CPU (x64)
           - artifact_name: linux-cpu-x64-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/linux-unpacked
             voicevox_engine_asset_name: linux-cpu-x64
             package_name: voicevox-cpu
@@ -131,7 +124,6 @@ jobs:
             env_file: .env.embed-engine.linux
           # Linux CPU (arm64)
           - artifact_name: linux-cpu-arm64-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/linux-arm64-unpacked
             voicevox_engine_asset_name: linux-cpu-arm64
             package_name: voicevox-cpu
@@ -144,7 +136,6 @@ jobs:
             env_file: .env.embed-engine.linux
           # Windows CUDA
           - artifact_name: windows-nvidia-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/win-unpacked
             voicevox_engine_asset_name: windows-nvidia
             package_name: voicevox-cuda
@@ -155,7 +146,6 @@ jobs:
             env_file: .env.embed-engine.windows
           # Windows CPU
           - artifact_name: windows-cpu-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/win-unpacked
             voicevox_engine_asset_name: windows-cpu
             package_name: voicevox-cpu
@@ -166,7 +156,6 @@ jobs:
             env_file: .env.embed-engine.windows
           # Windows DirectML
           - artifact_name: windows-directml-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/win-unpacked
             voicevox_engine_asset_name: windows-directml
             package_name: voicevox-directml
@@ -177,7 +166,6 @@ jobs:
             env_file: .env.embed-engine.windows
           # macOS CPU (x64)
           - artifact_name: macos-cpu-x64-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/mac
             voicevox_engine_asset_name: macos-x64
             package_name: voicevox-cpu
@@ -188,7 +176,6 @@ jobs:
             env_file: .env.embed-engine.macos
           # macOS CPU (arm64)
           - artifact_name: macos-cpu-arm64-prepackage
-            engine_mode: "embed-engine"
             artifact_path: dist_electron/mac-arm64
             voicevox_engine_asset_name: macos-arm64
             package_name: voicevox-cpu
@@ -339,7 +326,6 @@ jobs:
       # Build result will be exported to ${{ matrix.artifact_path }}
       - name: Build Electron
         env:
-          VOICEVOX_ENGINE_MODE: ${{ matrix.engine_mode }}
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
@@ -463,7 +449,6 @@ jobs:
       - name: Build Electron
         if: endsWith(matrix.installer_artifact_name, '-nsis-web') || endsWith(matrix.installer_artifact_name, '-appimage') # windows and linux
         env:
-          VOICEVOX_ENGINE_MODE: ${{ matrix.engine_mode }}
           NSIS_WEB_ARTIFACT_NAME: ${{ matrix.nsis_web_artifact_name }}
           LINUX_ARTIFACT_NAME: ${{ matrix.linux_artifact_name }}
           LINUX_EXECUTABLE_NAME: ${{ matrix.linux_executable_name }}
@@ -473,7 +458,6 @@ jobs:
       - name: Build Electron (for macOS)
         if: endsWith(matrix.installer_artifact_name, '-dmg') # macOS
         env:
-          VOICEVOX_ENGINE_MODE: ${{ matrix.engine_mode }}
           MACOS_ARTIFACT_NAME: ${{ matrix.macos_artifact_name }}
         run: |
           pnpm run electron:build:pack --prepackaged prepackage/VOICEVOX.app
@@ -555,41 +539,21 @@ jobs:
           target_commitish: ${{ github.sha }}
 
       - name: Upload Windows NSIS Web to Artifacts
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && matrix.engine_mode == 'embed-engine' && github.event.inputs.upload_artifact == 'true'
+        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && github.event.inputs.upload_artifact == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.installer_artifact_name }}-release
           path: |-
-            dist_electron/nsis-web/out/*.7z.*
+            dist_electron/nsis-web/${{ matrix.voicevox_engine_asset_name != null && 'out/*.7z.*' || '*.nsis.7z' }}
             dist_electron/nsis-web/*.exe
 
       - name: Upload Windows NSIS Web to Release Assets
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && matrix.engine_mode == 'embed-engine' && github.event.inputs.version != ''
+        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && github.event.inputs.version != ''
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           prerelease: ${{ github.event.inputs.prerelease }}
           tag_name: ${{ env.VOICEVOX_EDITOR_VERSION }}
           files: |-
-            dist_electron/nsis-web/out/*.7z.*
-            dist_electron/nsis-web/*.exe
-          target_commitish: ${{ github.sha }}
-
-      - name: Upload Windows NSIS Web package to Artifacts
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && matrix.engine_mode == 'download-vvpp' && github.event.inputs.upload_artifact == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ matrix.installer_artifact_name }}-release
-          path: |-
-            dist_electron/nsis-web/*.nsis.7z
-            dist_electron/nsis-web/*.exe
-
-      - name: Upload Windows NSIS Web package to Release Assets
-        if: endsWith(matrix.installer_artifact_name, '-nsis-web') && matrix.engine_mode == 'download-vvpp' && github.event.inputs.version != ''
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
-        with:
-          prerelease: ${{ github.event.inputs.prerelease }}
-          tag_name: ${{ env.VOICEVOX_EDITOR_VERSION }}
-          files: |-
-            dist_electron/nsis-web/*.nsis.7z
+            dist_electron/nsis-web/${{ matrix.voicevox_engine_asset_name != null && 'out/*.7z.*' || '*.nsis.7z' }}
             dist_electron/nsis-web/*.exe
           target_commitish: ${{ github.sha }}
