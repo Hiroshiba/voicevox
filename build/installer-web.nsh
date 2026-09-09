@@ -1,3 +1,4 @@
+!define VOICEVOX_STANDARD_WEB_INSTALLER
 !ifndef BUILD_UNINSTALLER
 !define VOICEVOX_AUTO_START_APP
 
@@ -7,4 +8,4 @@
 AutoCloseWindow true
 !endif
 
-!include "installer-common.nsh"
+!include "${__FILEDIR__}installer.nsh"
