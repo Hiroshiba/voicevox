@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
 import afterAllArtifactBuild from "./afterAllArtifactBuild";
+import afterPack from "./afterPack";
+import type { VoicevoxEnginePlacement } from "./afterPack";
 import { parseInstallerMode } from "./installerMode";
 
 const rootDir = path.join(import.meta.dirname, "..");
@@ -16,8 +18,10 @@ const dotenvPath = [
 dotenv.config({ path: dotenvPath, quiet: true });
 
 const installerMode = parseInstallerMode(process.env.VOICEVOX_ENGINE_MODE);
-const VOICEVOX_ENGINE_DIR =
-  process.env.VOICEVOX_ENGINE_DIR ?? "../voicevox_engine/dist/run/";
+const voicevoxEnginePlacement = parseVoicevoxEnginePlacementFromEnv(
+  process.env.VOICEVOX_ENGINE_PLACEMENT_MODE,
+  process.env.VOICEVOX_ENGINE_DIR,
+);
 
 // ${productName} Web Setup ${version}.${ext}
 const NSIS_WEB_ARTIFACT_NAME = process.env.NSIS_WEB_ARTIFACT_NAME;
@@ -48,7 +52,7 @@ const isArm64 = process.arch === "arm64";
 // しかし、実行ファイルはVOICEVOX.app/Contents/MacOS/にあるため、extraFilesをVOICEVOX.app/Contents/ディレクトリにコピーするのは正しくない。
 // VOICEVOX.app/Contents/MacOS/ディレクトリにコピーされるように修正する。
 // cf: https://k-hyoda.hatenablog.com/entry/2021/10/23/000349#%E8%BF%BD%E5%8A%A0%E5%B1%95%E9%96%8B%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E5%85%88%E3%81%AE%E8%A8%AD%E5%AE%9A
-const extraFilePrefix = isMac ? "MacOS/" : "";
+const executableDirectory = isMac ? "MacOS/" : "";
 
 const sevenZipFile = readdirSync(path.join(rootDir, "vendored", "7z")).find(
   // Windows: 7za.exe, Linux: 7zzs, macOS: 7zz
@@ -99,20 +103,13 @@ const builderOptions: ElectronBuilderConfiguration = {
   ],
   extraFiles: [
     {
+      // NOTE: macOSでは実行ファイル配置領域にテキストファイルを置くとコード署名に失敗するため、Resourcesに配置する。
       from: "build/README.txt",
-      to: extraFilePrefix + "README.txt",
+      to: isMac ? "Resources/README.txt" : executableDirectory + "README.txt",
     },
-    ...(installerMode === "embed-engine"
-      ? [
-          {
-            from: VOICEVOX_ENGINE_DIR,
-            to: path.join(extraFilePrefix, "vv-engine"),
-          },
-        ]
-      : []),
     {
       from: path.join(rootDir, "vendored", "7z", sevenZipFile),
-      to: extraFilePrefix + sevenZipFile,
+      to: executableDirectory + sevenZipFile,
     },
   ],
   // electron-builder installer
@@ -120,6 +117,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
   afterAllArtifactBuild,
+  afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
@@ -181,11 +179,28 @@ const builderOptions: ElectronBuilderConfiguration = {
         arch: [isArm64 ? "arm64" : "x64"],
       },
     ],
-    identity: null, // ad-hoc署名をしない
   },
   dmg: {
     icon: "build/icons/icon-dmg.icns",
   },
 };
+
+/** 環境変数からVOICEVOX ENGINEの配置設定を得る */
+function parseVoicevoxEnginePlacementFromEnv(
+  modeValue: string | undefined,
+  directory: string | undefined,
+): VoicevoxEnginePlacement {
+  const hasDirectoryValue = directory != undefined && directory !== "";
+  const mode = modeValue ?? "none";
+
+  if (mode === "none" && !hasDirectoryValue) {
+    return { mode };
+  }
+  if ((mode === "copy" || mode === "move") && hasDirectoryValue) {
+    return { mode, directory };
+  }
+
+  throw new Error("VOICEVOX ENGINEの配置設定が不正です");
+}
 
 export default builderOptions;
