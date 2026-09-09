@@ -11,7 +11,18 @@ export type EnginePackageEmbeddedInfo = {
 /** ローカルのパッケージインストール状況 */
 export type EnginePackageCurrentInfo =
   | { status: "notInstalled" }
-  | { status: "installed"; installedVersion: string };
+  | {
+      status: "installed";
+      installedVersion: string;
+      source: "embedded" | "vvpp";
+    }
+  | {
+      status: "installed";
+      installedVersion: string;
+      source: "managed";
+      scope: "user" | "machine";
+      target: RuntimeTarget;
+    };
 
 /** オンラインで取得したパッケージ最新情報 */
 export type EnginePackageLatestInfo = {

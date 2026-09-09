@@ -113,20 +113,25 @@ process.on("unhandledRejection", (reason) => {
 
 function getAppPaths() {
   let appDirPath: string;
+  let applicationPath: string;
   let staticDir: string;
 
   if (isDevelopment) {
     // import.meta.dirnameはdist_electronを指しているので、一つ上のディレクトリに移動する
     appDirPath = path.join(import.meta.dirname, "..");
+    applicationPath = appDirPath;
     staticDir = path.join(appDirPath, "public");
   } else {
     appDirPath = path.dirname(app.getPath("exe"));
+    applicationPath = isMac
+      ? path.dirname(path.dirname(appDirPath))
+      : appDirPath;
     staticDir = import.meta.dirname;
   }
 
-  return { appDirPath, staticDir };
+  return { appDirPath, applicationPath, staticDir };
 }
-const { appDirPath, staticDir } = getAppPaths();
+const { appDirPath, applicationPath, staticDir } = getAppPaths();
 
 // 製品版はカレントディレクトリを.exeのパスにする
 // TODO: ディレクトリを移動しないようにしたい
@@ -236,6 +241,7 @@ initializeRuntimeInfoManager({
   appVersion: app.getVersion(),
 });
 initializeEngineInfoManager({
+  applicationPath,
   defaultEngineDir: appDirPath,
   vvppEngineDir,
 });

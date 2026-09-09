@@ -36,6 +36,7 @@ class WelcomeIpcMainHandleManager {
         );
 
         await engineAndVvppController.downloadAndInstallVvppEngine(
+          obj.engineId,
           app.getPath("downloads"),
           targetPackageInfo.packageInfo,
           {

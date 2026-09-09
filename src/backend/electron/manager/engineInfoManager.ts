@@ -6,6 +6,10 @@ import { dialog } from "electron"; // FIXME: ここでelectronをimportするの
 
 import { getConfigManager } from "../electronConfig";
 import {
+  readVoicevoxDeploymentReceipt,
+  type VoicevoxDeploymentReceipt,
+} from "./voicevoxDeploymentReceipt";
+import {
   type EngineInfo,
   type EngineDirValidationResult,
   type MinimumEngineManifestType,
@@ -19,6 +23,11 @@ import { createLogger } from "@/helpers/log";
 
 const log = createLogger("EngineInfoManager");
 
+type DeploymentEngineInfo = {
+  engineInfo: EngineInfo;
+  receipt: VoicevoxDeploymentReceipt;
+};
+
 /** 利用可能なエンジンの情報を管理するクラス */
 export class EngineInfoManager {
   defaultEngineDir: string;
@@ -28,10 +37,18 @@ export class EngineInfoManager {
   public altPortInfos: AltPortInfos = {};
 
   private envEngineInfos = loadEnvEngineInfos();
+  private readonly deploymentEngineInfo: DeploymentEngineInfo | undefined;
 
-  constructor(payload: { defaultEngineDir: string; vvppEngineDir: string }) {
+  constructor(payload: {
+    applicationPath: string;
+    defaultEngineDir: string;
+    vvppEngineDir: string;
+  }) {
     this.defaultEngineDir = payload.defaultEngineDir;
     this.vvppEngineDir = payload.vvppEngineDir;
+    this.deploymentEngineInfo = this.loadDeploymentEngineInfo(
+      payload.applicationPath,
+    );
   }
 
   /**
@@ -40,6 +57,14 @@ export class EngineInfoManager {
   isDefaultEngine(engineId: EngineId): boolean {
     return this.envEngineInfos.some(
       (engineInfo) => engineInfo.uuid === engineId,
+    );
+  }
+
+  /** 同梱されたエンジンかどうかを判定する。 */
+  isEmbeddedEngine(engineId: EngineId): boolean {
+    return this.envEngineInfos.some(
+      (engineInfo) =>
+        engineInfo.uuid === engineId && engineInfo.type !== "downloadVvpp",
     );
   }
 
@@ -115,6 +140,30 @@ export class EngineInfoManager {
       });
   }
 
+  private loadDeploymentEngineInfo(
+    applicationPath: string,
+  ): DeploymentEngineInfo | undefined {
+    const receipt = readVoicevoxDeploymentReceipt(applicationPath);
+    if (receipt == undefined) {
+      return undefined;
+    }
+
+    const result = this.loadEngineInfo(receipt.engine.path, "path");
+    if (!result.ok) {
+      throw result.error;
+    }
+    if (result.value.uuid !== receipt.engine.uuid) {
+      throw new Error("配置情報とエンジンマニフェストのUUIDが一致しません。");
+    }
+    if (result.value.version !== receipt.engine.version) {
+      throw new Error(
+        "配置情報とエンジンマニフェストのバージョンが一致しません。",
+      );
+    }
+
+    return { engineInfo: result.value, receipt };
+  }
+
   /**
    * VVPPエンジンの情報を取得する。
    */
@@ -170,16 +219,40 @@ export class EngineInfoManager {
     return engineInfos;
   }
 
+  /** 管理配置されたエンジンかどうかを判定する。 */
+  isManagedEngine(engineId: EngineId): boolean {
+    return this.deploymentEngineInfo?.engineInfo.uuid === engineId;
+  }
+
+  /** 採用された管理配置エンジンのreceiptを取得する。 */
+  getDeploymentEngineReceipt(
+    engineInfo: EngineInfo,
+  ): VoicevoxDeploymentReceipt | undefined {
+    if (this.deploymentEngineInfo?.engineInfo !== engineInfo) {
+      return undefined;
+    }
+    return this.deploymentEngineInfo.receipt;
+  }
+
   /**
    * 全てのエンジンの情報を取得する。
    */
   fetchEngineInfos(): EngineInfo[] {
     const engineInfos = [
       ...this.fetchEnvEngineInfos(),
+      ...(this.deploymentEngineInfo == undefined
+        ? []
+        : [this.deploymentEngineInfo.engineInfo]),
       ...this.fetchVvppEngineInfos(),
       ...this.fetchRegisteredEngineInfos(),
     ];
-    return engineInfos;
+    const uniqueEngineInfos = new Map<EngineId, EngineInfo>();
+    for (const engineInfo of engineInfos) {
+      if (!uniqueEngineInfos.has(engineInfo.uuid)) {
+        uniqueEngineInfos.set(engineInfo.uuid, engineInfo);
+      }
+    }
+    return [...uniqueEngineInfos.values()];
   }
 
   /**
@@ -267,6 +340,7 @@ export class EngineInfoManager {
 let manager: EngineInfoManager | undefined;
 
 export function initializeEngineInfoManager(payload: {
+  applicationPath: string;
   defaultEngineDir: string;
   vvppEngineDir: string;
 }) {

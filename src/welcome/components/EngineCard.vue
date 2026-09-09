@@ -15,6 +15,17 @@
       <div v-if="engineState.currentInfo.status === 'installed'">
         インストール済み：{{ engineState.currentInfo.installedVersion }}
       </div>
+      <div v-if="engineState.currentInfo.status === 'installed'">
+        導入元：{{ engineSourceText }}
+      </div>
+      <div
+        v-if="
+          engineState.currentInfo.status === 'installed' &&
+          engineState.currentInfo.source === 'managed'
+        "
+      >
+        デバイス：{{ engineTargetText }}
+      </div>
     </div>
     <div
       v-if="progressInfo.type === 'download' || progressInfo.type === 'install'"
@@ -90,6 +101,31 @@ import { useStore, type EngineProgressInfo } from "@/welcome/store";
 import type { EnginePackageLatestInfo } from "@/domain/enginePackage";
 import { showErrorDialog } from "@/components/Dialog/Dialog";
 
+type KnownRuntimeTarget =
+  | "windows-x64-cpu"
+  | "windows-x64-directml"
+  | "macos-x64-cpu"
+  | "macos-arm64-cpu"
+  | "linux-x64-cpu"
+  | "linux-x64-cuda";
+
+const runtimeTargetLabels = {
+  "windows-x64-cpu": "CPU",
+  "windows-x64-directml": "GPU / CPU",
+  "macos-x64-cpu": "CPU",
+  "macos-arm64-cpu": "CPU",
+  "linux-x64-cpu": "CPU",
+  "linux-x64-cuda": "GPU(CUDA)",
+} satisfies Record<KnownRuntimeTarget, string>;
+
+function getRuntimeTargetLabel(target: RuntimeTarget): string {
+  const targetEntry = Object.entries(runtimeTargetLabels).find(
+    ([knownTarget]) => knownTarget === target,
+  );
+  assertNonNullable(targetEntry, `未知のRuntime Targetです: ${target}`);
+  return targetEntry[1];
+}
+
 const props = defineProps<{
   engineId: EngineId;
 }>();
@@ -137,10 +173,50 @@ const latestVersionText = computed(() => {
   }
 });
 
+const engineSourceText = computed(() => {
+  const currentInfo = engineState.value.currentInfo;
+  if (currentInfo.status === "notInstalled") {
+    return "";
+  }
+
+  switch (currentInfo.source) {
+    case "embedded":
+      return "同梱";
+    case "managed":
+      if (currentInfo.scope === "machine") {
+        return "管理者配置・全ユーザー用";
+      }
+      return "管理者配置・個人用";
+    case "vvpp":
+      return "VVPP";
+    default:
+      throw new ExhaustiveError(currentInfo);
+  }
+});
+
+const engineTargetText = computed(() => {
+  const currentInfo = engineState.value.currentInfo;
+  if (currentInfo.status !== "installed" || currentInfo.source !== "managed") {
+    return "";
+  }
+
+  return getRuntimeTargetLabel(currentInfo.target);
+});
+
 const currentEngineStatus = computed<{
   actionLabel: string;
   color: "default" | "primary";
 }>(() => {
+  if (
+    engineState.value.currentInfo.status === "installed" &&
+    engineState.value.currentInfo.source === "managed"
+  ) {
+    return {
+      actionLabel: "管理者によって管理されています",
+      color: "default",
+    };
+  }
+
   if (latestInfo.value.type !== "fetched") {
     if (engineState.value.currentInfo.status === "notInstalled") {
       return {
@@ -185,7 +261,11 @@ const currentEngineStatus = computed<{
 });
 
 const isControlDisabled = computed(() => {
-  return progressInfo.value.type !== "idle";
+  return (
+    progressInfo.value.type !== "idle" ||
+    (engineState.value.currentInfo.status === "installed" &&
+      engineState.value.currentInfo.source === "managed")
+  );
 });
 
 const handleRuntimeTargetChange = (value: RuntimeTarget | undefined) => {

@@ -73,6 +73,15 @@ export class EngineAndVvppController {
       const isDefaultEngine = this.engineInfoManager.isDefaultEngine(
         extractedEngineFiles.getManifest().uuid,
       );
+      if (
+        this.engineInfoManager.isManagedEngine(
+          extractedEngineFiles.getManifest().uuid,
+        )
+      ) {
+        throw new DisplayableError(
+          "管理者によって配置されたエンジンは更新できません。",
+        );
+      }
       if (asDefaultVvppEngine && !isDefaultEngine) {
         throw new DisplayableError("これはデフォルトエンジンではありません。");
       }
@@ -158,6 +167,11 @@ export class EngineAndVvppController {
   async uninstallVvppEngine(engineId: EngineId) {
     let engineInfo: EngineInfo | undefined;
     try {
+      if (this.engineInfoManager.isManagedEngine(engineId)) {
+        throw new DisplayableError(
+          "管理者によって配置されたエンジンはアンインストールできません。",
+        );
+      }
       engineInfo = this.engineInfoManager.fetchEngineInfo(engineId);
       if (!engineInfo) {
         throw new Error(
@@ -193,16 +207,31 @@ export class EngineAndVvppController {
   private getInstalledEngineStatus(
     engineId: EngineId,
   ): EnginePackageCurrentInfo {
-    const isInstalled = this.engineInfoManager.hasEngineInfo(engineId);
-    if (!isInstalled) {
+    const installedEngineInfo = this.engineInfoManager
+      .fetchEngineInfos()
+      .find((engineInfo) => engineInfo.uuid === engineId);
+    if (installedEngineInfo == undefined) {
       return { status: "notInstalled" };
     }
 
-    const installedEngineInfo =
-      this.engineInfoManager.fetchEngineInfo(engineId);
+    const deploymentEngineReceipt =
+      this.engineInfoManager.getDeploymentEngineReceipt(installedEngineInfo);
+    if (deploymentEngineReceipt != undefined) {
+      return {
+        status: "installed",
+        installedVersion: installedEngineInfo.version,
+        source: "managed",
+        scope: deploymentEngineReceipt.scope,
+        target: deploymentEngineReceipt.engine.target,
+      };
+    }
+
     return {
       status: "installed",
       installedVersion: installedEngineInfo.version,
+      source: this.engineInfoManager.isEmbeddedEngine(engineId)
+        ? "embedded"
+        : "vvpp",
     };
   }
 
@@ -320,10 +349,16 @@ export class EngineAndVvppController {
 
   /** VVPPパッケージをダウンロードし、インストールする */
   async downloadAndInstallVvppEngine(
+    engineId: EngineId,
     downloadDir: string,
     packageInfo: PackageInfo,
     callbacks: { onProgress: ProgressCallback<"download" | "install"> },
   ) {
+    if (this.engineInfoManager.isManagedEngine(engineId)) {
+      throw new DisplayableError(
+        "管理者によって配置されたエンジンは更新できません。",
+      );
+    }
     if (packageInfo.files.length === 0) {
       throw new Error("No packages to download");
     }
