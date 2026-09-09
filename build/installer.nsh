@@ -74,8 +74,10 @@
 
   !macro customWelcomePage
     Page custom voicevoxInitialEngineTargetPageShow voicevoxInitialEngineTargetPageLeave
+    !insertmacro voicevoxInitialEngineTargetPageFunctions
   !macroend
 
+  !macro voicevoxInitialEngineTargetPageFunctions
   Function voicevoxInitialEngineTargetPageShow
     ${If} ${UAC_IsInnerInstance}
     ${AndIf} $voicevoxInitialEngineTargetSkipped != "1"
@@ -137,6 +139,7 @@
     ${EndIf}
     !insertmacro validateVoicevoxInitialEngineTarget
   FunctionEnd
+  !macroend
 !endif
 
 ; "%VITE_APP_NAME%"が空の状態でビルドすると他のソフトのファイルを消してしまうためビルドエラーにする。
