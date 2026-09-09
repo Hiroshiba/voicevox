@@ -591,9 +591,13 @@ jobs:
 
       - name: Setup installer paths
         run: |
+          profile_path=$HOME
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            profile_path=$USERPROFILE
+          fi
           {
-            echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
-            echo "APP_DIR=${{ runner.temp }}/voicevox"
+            echo "INSTALLER_DIR=$profile_path/voicevox-installer"
+            echo "APP_DIR=$profile_path/voicevox"
           } >> "$GITHUB_ENV"
 
       - name: Install xvfb on Linux
@@ -629,24 +633,9 @@ jobs:
       - name: Measure directory size before application install
         run: |
           set -u
-          profile_path=$HOME
-          temp_path=$RUNNER_TEMP
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            profile_path=$USERPROFILE
-          fi
-          profile_path=$(cd "$profile_path" && pwd -P)
-          temp_path=$(cd "$temp_path" && pwd -P)
-          # NOTE: ユーザープロファイルとRUNNER_TEMPだけを測定し、OS全体の変動を判定から除外する。
-          targets=("$profile_path")
-          if [[ "$temp_path" != "$profile_path" && "$temp_path" != "$profile_path"/* ]]; then
-            targets+=("$temp_path")
-          fi
-          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
-          {
-            echo "SIZE_PROFILE_DIR=$profile_path"
-            echo "SIZE_TEMP_DIR=$temp_path"
-            echo "SIZE_BASELINE_KIB=$total_kib"
-          } >> "$GITHUB_ENV"
+          # NOTE: アプリ固有の保存先に依存せず、OS全体の変動を避けるため、ホーム全体を測定する。
+          total_kib=$(du -xsk "$HOME" | awk '{print $1}')
+          echo "SIZE_BASELINE_KIB=$total_kib" >> "$GITHUB_ENV"
           echo "totalKiB=$total_kib"
 
       - name: Install Linux application
@@ -677,7 +666,7 @@ jobs:
 
       - name: Run installer test
         env:
-          VOICEVOX_EXECUTABLE_PATH: ${{ runner.temp }}/voicevox/${{ matrix.executable }}
+          VOICEVOX_EXECUTABLE_PATH: ${{ env.APP_DIR }}/${{ matrix.executable }}
         run: |
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             xvfb-run --auto-servernum pnpm exec playwright test --config playwright.installed.config.ts
@@ -688,11 +677,7 @@ jobs:
       - name: Measure directory size after installer test
         run: |
           set -u
-          targets=("$SIZE_PROFILE_DIR")
-          if [[ "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR" && "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR"/* ]]; then
-            targets+=("$SIZE_TEMP_DIR")
-          fi
-          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          total_kib=$(du -xsk "$HOME" | awk '{print $1}')
           difference_kib=$((total_kib - SIZE_BASELINE_KIB))
           echo "totalKiB=$total_kib baselineKiB=$SIZE_BASELINE_KIB differenceKiB=$difference_kib"
           ((difference_kib > 0))
@@ -722,11 +707,7 @@ jobs:
       - name: Measure directory size after application uninstall
         run: |
           set -u
-          targets=("$SIZE_PROFILE_DIR")
-          if [[ "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR" && "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR"/* ]]; then
-            targets+=("$SIZE_TEMP_DIR")
-          fi
-          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          total_kib=$(du -xsk "$HOME" | awk '{print $1}')
           difference_kib=$((total_kib - SIZE_BASELINE_KIB))
           echo "totalKiB=$total_kib baselineKiB=$SIZE_BASELINE_KIB differenceKiB=$difference_kib"
           if [[ "$RUNNER_OS" == "Linux" ]]; then
