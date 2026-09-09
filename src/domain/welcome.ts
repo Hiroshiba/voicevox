@@ -3,7 +3,6 @@ import { engineIdSchema } from "@/type/preload";
 
 export const welcomeWindowLaunchContextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("initialSetup"), engineId: engineIdSchema }),
-  z.object({ type: z.literal("initialSetupSelection") }),
   z.object({ type: z.literal("manual") }),
 ]);
 export type WelcomeWindowLaunchContext = z.infer<

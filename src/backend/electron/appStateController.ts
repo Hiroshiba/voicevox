@@ -30,7 +30,7 @@ export class AppStateController {
    * アプリ起動時の初期化処理を行う。
    * ウェルカムウィンドウまたはメインウィンドウのどちらかを起動する。
    */
-  async startup(): Promise<void> {
+  async startup() {
     const engineAndVvppController = getEngineAndVvppController();
     if (
       !engineAndVvppController.hasDownloadableDefaultEngine() ||
@@ -48,7 +48,7 @@ export class AppStateController {
         throw new Error("ダウンロード可能なデフォルトエンジンIDがありません。");
       }
       if (engineIds.length > 1) {
-        await this.launchWelcomeWindow({ type: "initialSetupSelection" });
+        await this.launchWelcomeWindow({ type: "manual" });
         return;
       }
       const [engineId] = engineIds;
@@ -57,14 +57,11 @@ export class AppStateController {
   }
 
   /** メインウィンドウに切り替える。 */
-  async switchToMainWindow(): Promise<void> {
-    const welcomeWindowManager = getWelcomeWindowManager();
-    if (welcomeWindowManager.isEngineInstallationInProgress()) {
-      throw new Error("エンジンのインストール中はMainへ切り替えられません。");
-    }
+  async switchToMainWindow() {
     log.info("Switching to main window");
     this.quitState = "switch";
 
+    const welcomeWindowManager = getWelcomeWindowManager();
     if (welcomeWindowManager.isInitialized()) {
       log.info("Destroying welcome window");
       welcomeWindowManager.destroyWindow();
@@ -75,7 +72,7 @@ export class AppStateController {
   }
 
   /** ウェルカムウィンドウに切り替える。 */
-  async switchToWelcomeWindow(): Promise<void> {
+  async switchToWelcomeWindow() {
     log.info("Switching to welcome window");
     this.quitState = "switch";
 
@@ -91,16 +88,14 @@ export class AppStateController {
     this.quitState = "unconfirmed";
   }
 
-  private async launchWelcomeWindow(
-    context: WelcomeWindowLaunchContext,
-  ): Promise<void> {
+  private async launchWelcomeWindow(context: WelcomeWindowLaunchContext) {
     this.activeWindow = "welcome";
 
     const welcomeWindowManager = getWelcomeWindowManager();
     await welcomeWindowManager.createWindow(context);
   }
 
-  private async launchEngineAndMainWindow(): Promise<void> {
+  private async launchEngineAndMainWindow() {
     this.activeWindow = "main";
 
     const engineAndVvppController = getEngineAndVvppController();
@@ -190,12 +185,7 @@ export class AppStateController {
   }
 
   /** 編集状態に関わらず終了する */
-  shutdown(): void {
-    const welcomeWindowManager = getWelcomeWindowManager();
-    if (welcomeWindowManager.isEngineInstallationInProgress()) {
-      log.info("Engine installation is in progress. Preventing shutdown.");
-      return;
-    }
+  shutdown() {
     const mainWindowManager = getMainWindowManager();
     this.quitState = "dirty";
     if (mainWindowManager.isInitialized()) {

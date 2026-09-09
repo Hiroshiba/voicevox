@@ -4,9 +4,6 @@
 
 import { z } from "zod";
 
-import type { EnginePackageLatestInfo } from "@/domain/enginePackage";
-import type { EngineId } from "@/type/preload";
-
 /** Runtime Target */
 export const runtimeTargetSchema = z.string().regex(/^[^-]+-[^-]+-[^-]+$/);
 export type RuntimeTarget = z.infer<typeof runtimeTargetSchema>;
@@ -49,33 +46,4 @@ export const getPackageInfoByTarget = (
   target: RuntimeTarget,
 ): PackageInfo => {
   return updateInfo.packages[target];
-};
-
-/** 推奨ランタイムターゲットを取得する。 */
-export const getDefaultRuntimeTarget = (
-  engineId: EngineId,
-  latestInfo: EnginePackageLatestInfo,
-): RuntimeTarget => {
-  const defaultRuntimeTargetInfos = latestInfo.availableRuntimeTargets.filter(
-    (targetInfo) => targetInfo.packageInfo.displayInfo.default === true,
-  );
-  if (defaultRuntimeTargetInfos.length === 0) {
-    throw new Error(
-      `推奨ランタイムターゲットがありません。エンジンID: ${engineId}`,
-    );
-  }
-  if (defaultRuntimeTargetInfos.length > 1) {
-    throw new Error(
-      `推奨ランタイムターゲットが複数あります。エンジンID: ${engineId}`,
-    );
-  }
-
-  const [defaultRuntimeTargetInfo] = defaultRuntimeTargetInfos;
-  if (defaultRuntimeTargetInfo.packageInfo.files.length === 0) {
-    throw new Error(
-      `推奨ランタイムターゲットのパッケージにファイルがありません。エンジンID: ${engineId}、ターゲット: ${defaultRuntimeTargetInfo.target}`,
-    );
-  }
-
-  return defaultRuntimeTargetInfo.target;
 };

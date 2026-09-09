@@ -37,7 +37,7 @@ import { provideWelcomeStore } from "@/welcome/store";
 
 const store = provideWelcomeStore();
 
-onMounted(async (): Promise<void> => {
+onMounted(async () => {
   await store.initialize();
 });
 </script>
