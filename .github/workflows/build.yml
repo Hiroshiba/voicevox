@@ -590,7 +590,6 @@ jobs:
         uses: ./.github/actions/setup-environment
 
       - name: Setup installer paths
-        shell: bash
         run: |
           {
             echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
@@ -700,19 +699,6 @@ jobs:
             "${INSTALLER_DIR}/${{ matrix.installer_file }}"
           ditto "${DMG_MOUNT_POINT}/VOICEVOX.app" "${APP_DIR}/VOICEVOX.app"
           hdiutil detach "${DMG_MOUNT_POINT}"
-
-      # - name: Install Windows application
-      #   if: runner.os == 'Windows'
-      #   shell: pwsh
-      #   run: |
-      #     $installerPath = Join-Path $env:INSTALLER_DIR "${{ matrix.installer_file }}"
-      #     New-Item -ItemType Directory -Force -Path $env:APP_DIR | Out-Null
-      #     $process = Start-Process -FilePath $installerPath `
-      #       -ArgumentList @('/S', "/D=$([IO.Path]::GetFullPath($env:APP_DIR))") `
-      #       -Wait -PassThru
-      #     if ($process.ExitCode -ne 0) {
-      #       throw "インストーラーが終了コード $($process.ExitCode) で終了しました"
-      #     }
 
       - name: Install Windows application with Git Bash
         if: runner.os == 'Windows'
