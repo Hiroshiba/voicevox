@@ -595,51 +595,53 @@ jobs:
             echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
             echo "APP_DIR=${{ runner.temp }}/voicevox"
           } >> "$GITHUB_ENV"
-          cat > "$RUNNER_TEMP/measure-volume.mjs" <<'NODE'
-          import assert from "node:assert/strict";
-          import fs from "node:fs";
-          import os from "node:os";
+          cat > "$RUNNER_TEMP/measure-directory-size.sh" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
 
-          const phase = process.argv[2];
-          const runnerTemp = process.env.RUNNER_TEMP;
-          assert(["before", "installed", "uninstalled"].includes(phase), "容量計測のphaseが不正です。");
-          assert(runnerTemp != undefined && runnerTemp !== "", "RUNNER_TEMPがありません。");
+          phase=$1
+          case "$phase" in
+            before | installed | uninstalled) ;;
+            *)
+              echo "容量計測のphaseが不正です。phase=$phase" >&2
+              exit 1
+              ;;
+          esac
+          profile_path=$HOME
+          temp_path=$RUNNER_TEMP
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            profile_path=$(cygpath -u "$USERPROFILE")
+            temp_path=$(cygpath -u "$RUNNER_TEMP")
+          fi
 
-          const baselinePath = `${runnerTemp}/voicevox-volume-baseline.json`;
-          const volumes = new Map();
-          for (const target of [os.homedir(), runnerTemp]) {
-            const device = fs.statSync(target).dev;
-            if (volumes.has(device)) continue;
-            const { bsize, blocks, bfree } = fs.statfsSync(target);
-            volumes.set(device, { device, usedBytes: bsize * (blocks - bfree) });
-          }
+          profile_path=$(cd "$profile_path" && pwd -P)
+          temp_path=$(cd "$temp_path" && pwd -P)
+          # NOTE: ユーザープロファイルとRUNNER_TEMPだけを測定し、OS全体の変動を判定から除外する。
+          targets=("$profile_path")
+          if [[ "$temp_path" != "$profile_path" && "$temp_path" != "$profile_path"/* ]]; then
+            targets+=("$temp_path")
+          fi
 
-          if (phase === "before") {
-            fs.writeFileSync(baselinePath, JSON.stringify([...volumes.values()]));
-          } else {
-            const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
-            assert.deepStrictEqual([...volumes.keys()].sort(), baseline.map(({ device }) => device).sort(), "容量計測対象のdeviceが変化しました。");
-            for (const volume of volumes.values()) {
-              const original = baseline.find(({ device }) => device === volume.device);
-              assert(original != undefined, "baselineにdeviceがありません。");
-              const difference = volume.usedBytes - original.usedBytes;
-              const differenceMiB = difference / 1024 ** 2;
-              // NOTE: OSのログ更新も全体容量に含まれるため、アンインストール後の判定には余裕を持たせる。
-              const thresholdMiB = phase === "installed" ? 0 : 256;
-              // TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
-              const expectIncrease = phase === "installed" || process.platform === "linux";
-              const valid = expectIncrease
-                ? differenceMiB > thresholdMiB
-                : differenceMiB <= thresholdMiB;
-              const condition = expectIncrease
-                ? `${thresholdMiB}MiBより大きい`
-                : `${thresholdMiB}MiB以下`;
-              assert(valid, `容量差分が条件を満たしません。phase=${phase} differenceMiB=${differenceMiB} condition=${condition}`);
-              volume.differenceMiB = differenceMiB;
-            }
-          }
-          console.log(JSON.stringify({ phase, volumes: [...volumes.values()] }));
-          NODE
+          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          baseline_path="$temp_path/voicevox-size-baseline"
+          if [[ "$phase" == "before" ]]; then
+            printf '%s\n' "$total_kib" > "$baseline_path"
+            echo "phase=$phase totalKiB=$total_kib"
+            exit 0
+          fi
+          baseline_kib=$(<"$baseline_path")
+          difference_kib=$((total_kib - baseline_kib))
+          echo "phase=$phase totalKiB=$total_kib baselineKiB=$baseline_kib differenceKiB=$difference_kib"
+
+          if [[ "$phase" == "installed" ]]; then
+            ((difference_kib > 0))
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            # TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
+            ((difference_kib > 32 * 1024))
+          else
+            ((difference_kib <= 32 * 1024))
+          fi
+          BASH
 
       - name: Install FUSE and xvfb on Linux
         if: runner.os == 'Linux'
@@ -671,15 +673,8 @@ jobs:
           mapfile -t archive_parts < <(printf '%s\n' "$archive_path".[0-9]* | sort -V)
           cat "${archive_parts[@]}" > "$archive_path"
 
-      - name: Disable Spotlight indexing before capacity measurement
-        if: runner.os == 'macOS'
-        run: |
-          # NOTE: Spotlightの索引更新による容量増加を、アンインストール後の残存と誤判定しないため
-          sudo -n mdutil -i off /System/Volumes/Data
-          sudo -n mdutil -s /System/Volumes/Data
-
-      - name: Measure filesystem before application install
-        run: node "$RUNNER_TEMP/measure-volume.mjs" before
+      - name: Measure directory size before application install
+        run: bash "$RUNNER_TEMP/measure-directory-size.sh" before
 
       - name: Install Linux application
         if: runner.os == 'Linux'
@@ -717,8 +712,8 @@ jobs:
             pnpm exec playwright test --config playwright.installed.config.ts
           fi
 
-      - name: Measure filesystem after installer test
-        run: node "$RUNNER_TEMP/measure-volume.mjs" installed
+      - name: Measure directory size after installer test
+        run: bash "$RUNNER_TEMP/measure-directory-size.sh" installed
 
       - name: Uninstall Linux application
         if: runner.os == 'Linux'
@@ -742,5 +737,5 @@ jobs:
           rm "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")"
           rmdir "$(cygpath -u "$APP_DIR")"
 
-      - name: Measure filesystem after application uninstall
-        run: node "$RUNNER_TEMP/measure-volume.mjs" uninstalled
+      - name: Measure directory size after application uninstall
+        run: bash "$RUNNER_TEMP/measure-directory-size.sh" uninstalled
