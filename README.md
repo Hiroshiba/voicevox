@@ -129,6 +129,8 @@ pnpm run electron:build
 fork したリポジトリで Actions を ON にし、workflow_dispatch で`build.yml`を起動すればビルドできます。
 成果物は Release にアップロードされます。
 
+準備済みの成果物を管理者・オフライン環境で導入する場合は、[配置手順](tools/deploy/README.md)を参照してください。
+
 ## テスト
 
 ### 単体テスト

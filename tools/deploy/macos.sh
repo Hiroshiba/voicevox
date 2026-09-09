@@ -311,6 +311,15 @@ normalize_machine_stage() {
   fi
 }
 
+ensure_user_directories_writable() {
+  local path=$1
+
+  assert_directory "$path" "Userスコープの配置先"
+  if ! find -P "$path" -type d -exec chmod u+rwx {} +; then
+    die "Userスコープのディレクトリ権限を設定できません。パス: $path"
+  fi
+}
+
 assert_machine_file_secure() {
   local path=$1
   local owner
@@ -648,6 +657,8 @@ install_deployment() {
   fi
   if [[ "$scope" == "machine" ]]; then
     normalize_machine_stage "$engine_stage"
+  else
+    ensure_user_directories_writable "$engine_stage"
   fi
   validate_engine_directory "$engine_stage"
   staged_uuid=$manifest_uuid
@@ -659,6 +670,8 @@ install_deployment() {
   fi
   if [[ "$scope" == "machine" ]]; then
     normalize_machine_stage "$app_stage"
+  else
+    ensure_user_directories_writable "$app_stage"
   fi
   validate_application_source "$app_stage"
   if [[ "$scope" == "machine" ]]; then
@@ -689,10 +702,16 @@ install_deployment() {
   register_launch_services "$app_path"
   write_receipt "$receipt_path" "$app_path" "$scope" "ready" "$engine_path" "$source_uuid" "$source_version" "$runtime_target"
   if [[ -n "$app_backup_path" && -e "$app_backup_path" ]]; then
+    if [[ "$scope" == "user" ]]; then
+      ensure_user_directories_writable "$app_backup_path"
+    fi
     rm -rf "$app_backup_path"
     app_backup_path=""
   fi
   if [[ -n "$engine_backup_path" && -e "$engine_backup_path" ]]; then
+    if [[ "$scope" == "user" ]]; then
+      ensure_user_directories_writable "$engine_backup_path"
+    fi
     rm -rf "$engine_backup_path"
     engine_backup_path=""
   fi
@@ -730,6 +749,9 @@ remove_engine() {
     [[ "$manifest_version" == "$receipt_engine_version" ]] || die "管理エンジンのバージョンが配置情報と一致しません。"
   fi
   assert_no_deployment_artifacts "$(dirname "$engine_path")" "$(basename "$engine_path")"
+  if [[ "$scope" == "user" ]]; then
+    ensure_user_directories_writable "$engine_path"
+  fi
   rm -rf "$engine_path"
   [[ ! -e "$engine_path" && ! -L "$engine_path" ]] || die "管理エンジンを削除できませんでした。パス: $engine_path"
   rm -f "$receipt_path"
