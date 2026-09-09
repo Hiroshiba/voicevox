@@ -595,53 +595,6 @@ jobs:
             echo "INSTALLER_DIR=${{ runner.temp }}/voicevox-installer"
             echo "APP_DIR=${{ runner.temp }}/voicevox"
           } >> "$GITHUB_ENV"
-          cat > "$RUNNER_TEMP/measure-directory-size.sh" <<'BASH'
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          phase=$1
-          case "$phase" in
-            before | installed | uninstalled) ;;
-            *)
-              echo "容量計測のphaseが不正です。phase=$phase" >&2
-              exit 1
-              ;;
-          esac
-          profile_path=$HOME
-          temp_path=$RUNNER_TEMP
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            profile_path=$(cygpath -u "$USERPROFILE")
-            temp_path=$(cygpath -u "$RUNNER_TEMP")
-          fi
-
-          profile_path=$(cd "$profile_path" && pwd -P)
-          temp_path=$(cd "$temp_path" && pwd -P)
-          # NOTE: ユーザープロファイルとRUNNER_TEMPだけを測定し、OS全体の変動を判定から除外する。
-          targets=("$profile_path")
-          if [[ "$temp_path" != "$profile_path" && "$temp_path" != "$profile_path"/* ]]; then
-            targets+=("$temp_path")
-          fi
-
-          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
-          baseline_path="$temp_path/voicevox-size-baseline"
-          if [[ "$phase" == "before" ]]; then
-            printf '%s\n' "$total_kib" > "$baseline_path"
-            echo "phase=$phase totalKiB=$total_kib"
-            exit 0
-          fi
-          baseline_kib=$(<"$baseline_path")
-          difference_kib=$((total_kib - baseline_kib))
-          echo "phase=$phase totalKiB=$total_kib baselineKiB=$baseline_kib differenceKiB=$difference_kib"
-
-          if [[ "$phase" == "installed" ]]; then
-            ((difference_kib > 0))
-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            # TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
-            ((difference_kib > 32 * 1024))
-          else
-            ((difference_kib <= 32 * 1024))
-          fi
-          BASH
 
       - name: Install FUSE and xvfb on Linux
         if: runner.os == 'Linux'
@@ -674,7 +627,28 @@ jobs:
           cat "${archive_parts[@]}" > "$archive_path"
 
       - name: Measure directory size before application install
-        run: bash "$RUNNER_TEMP/measure-directory-size.sh" before
+        run: |
+          set -u
+          profile_path=$HOME
+          temp_path=$RUNNER_TEMP
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            profile_path=$(cygpath -u "$USERPROFILE")
+            temp_path=$(cygpath -u "$RUNNER_TEMP")
+          fi
+          profile_path=$(cd "$profile_path" && pwd -P)
+          temp_path=$(cd "$temp_path" && pwd -P)
+          # NOTE: ユーザープロファイルとRUNNER_TEMPだけを測定し、OS全体の変動を判定から除外する。
+          targets=("$profile_path")
+          if [[ "$temp_path" != "$profile_path" && "$temp_path" != "$profile_path"/* ]]; then
+            targets+=("$temp_path")
+          fi
+          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          {
+            echo "SIZE_PROFILE_DIR=$profile_path"
+            echo "SIZE_TEMP_DIR=$temp_path"
+            echo "SIZE_BASELINE_KIB=$total_kib"
+          } >> "$GITHUB_ENV"
+          echo "totalKiB=$total_kib"
 
       - name: Install Linux application
         if: runner.os == 'Linux'
@@ -713,7 +687,16 @@ jobs:
           fi
 
       - name: Measure directory size after installer test
-        run: bash "$RUNNER_TEMP/measure-directory-size.sh" installed
+        run: |
+          set -u
+          targets=("$SIZE_PROFILE_DIR")
+          if [[ "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR" && "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR"/* ]]; then
+            targets+=("$SIZE_TEMP_DIR")
+          fi
+          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          difference_kib=$((total_kib - SIZE_BASELINE_KIB))
+          echo "totalKiB=$total_kib baselineKiB=$SIZE_BASELINE_KIB differenceKiB=$difference_kib"
+          ((difference_kib > 0))
 
       - name: Uninstall Linux application
         if: runner.os == 'Linux'
@@ -738,4 +721,18 @@ jobs:
           rmdir "$(cygpath -u "$APP_DIR")"
 
       - name: Measure directory size after application uninstall
-        run: bash "$RUNNER_TEMP/measure-directory-size.sh" uninstalled
+        run: |
+          set -u
+          targets=("$SIZE_PROFILE_DIR")
+          if [[ "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR" && "$SIZE_TEMP_DIR" != "$SIZE_PROFILE_DIR"/* ]]; then
+            targets+=("$SIZE_TEMP_DIR")
+          fi
+          total_kib=$(du -xsk "${targets[@]}" | awk '{total += $1} END {print total}')
+          difference_kib=$((total_kib - SIZE_BASELINE_KIB))
+          echo "totalKiB=$total_kib baselineKiB=$SIZE_BASELINE_KIB differenceKiB=$difference_kib"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            # TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
+            ((difference_kib > 32 * 1024))
+          else
+            ((difference_kib <= 32 * 1024))
+          fi
