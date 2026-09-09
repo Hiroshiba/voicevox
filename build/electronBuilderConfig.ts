@@ -3,7 +3,6 @@ import { readdirSync, existsSync, rmSync } from "node:fs";
 import dotenv from "dotenv";
 import type { Configuration as ElectronBuilderConfiguration } from "electron-builder";
 import { z } from "zod";
-import afterAllArtifactBuild from "./afterAllArtifactBuild";
 import afterPack from "./afterPack";
 import type { VoicevoxEnginePlacement } from "./afterPack";
 
@@ -114,7 +113,6 @@ const builderOptions: ElectronBuilderConfiguration = {
   productName: "VOICEVOX",
   appId: "jp.hiroshiba.voicevox",
   copyright: "Hiroshiba Kazuyuki",
-  afterAllArtifactBuild,
   afterPack: (context) => afterPack(context, voicevoxEnginePlacement),
   electronFuses: {
     runAsNode: false,
@@ -144,6 +142,8 @@ const builderOptions: ElectronBuilderConfiguration = {
     artifactName: NSIS_WEB_ARTIFACT_NAME || undefined,
     include: "build/installer.nsh",
     oneClick: false,
+    perMachine: false,
+    allowElevation: true,
     allowToChangeInstallationDirectory: true,
   },
   publish: {
