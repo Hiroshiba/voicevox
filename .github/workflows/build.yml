@@ -695,7 +695,7 @@ jobs:
           ditto "${DMG_MOUNT_POINT}/VOICEVOX.app" "${APP_DIR}/VOICEVOX.app"
           hdiutil detach "${DMG_MOUNT_POINT}"
 
-      - name: Install Windows application with Git Bash
+      - name: Install Windows application
         if: runner.os == 'Windows'
         run: |
           MSYS2_ARG_CONV_EXCL='/S;/D=' \
