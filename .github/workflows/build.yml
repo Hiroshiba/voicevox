@@ -625,8 +625,15 @@ jobs:
               assert(original != undefined, "baselineにdeviceがありません。");
               const difference = volume.usedBytes - original.usedBytes;
               const differenceMiB = difference / 1024 ** 2;
-              const valid = phase === "installed" ? differenceMiB > 0 : differenceMiB <= 256;
-              const condition = phase === "installed" ? "0より大きい" : "256MiB以下";
+              const thresholdMiB = phase === "installed" ? 0 : 5;
+              // TODO: Linuxのアンインストーラーが追加エンジンを削除するようになったら、Linuxを増加期待から外す。
+              const expectIncrease = phase === "installed" || process.platform === "linux";
+              const valid = expectIncrease
+                ? differenceMiB > thresholdMiB
+                : differenceMiB <= thresholdMiB;
+              const condition = expectIncrease
+                ? `${thresholdMiB}MiBより大きい`
+                : `${thresholdMiB}MiB以下`;
               assert(valid, `容量差分が条件を満たしません。phase=${phase} differenceMiB=${differenceMiB} condition=${condition}`);
               volume.differenceMiB = differenceMiB;
             }
