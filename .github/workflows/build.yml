@@ -632,8 +632,7 @@ jobs:
           profile_path=$HOME
           temp_path=$RUNNER_TEMP
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            profile_path=$(cygpath -u "$USERPROFILE")
-            temp_path=$(cygpath -u "$RUNNER_TEMP")
+            profile_path=$USERPROFILE
           fi
           profile_path=$(cd "$profile_path" && pwd -P)
           temp_path=$(cd "$temp_path" && pwd -P)
@@ -673,7 +672,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           MSYS2_ARG_CONV_EXCL='/S;/D=' \
-            "$(cygpath -u "${INSTALLER_DIR}/${{ matrix.installer_file }}")" \
+            "${INSTALLER_DIR}/${{ matrix.installer_file }}" \
             /S "/D=$(cygpath -w "$APP_DIR")"
 
       - name: Run installer test
@@ -715,10 +714,10 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           MSYS2_ARG_CONV_EXCL='/S;--delete-app-data;_?=' \
-            "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")" \
-            /S --delete-app-data "_?=$(cygpath -w "$APP_DIR")"
-          rm "$(cygpath -u "${APP_DIR}/Uninstall VOICEVOX.exe")"
-          rmdir "$(cygpath -u "$APP_DIR")"
+            "${APP_DIR}/Uninstall VOICEVOX.exe" \
+            /S --delete-app-data "_?=$APP_DIR"
+          rm "${APP_DIR}/Uninstall VOICEVOX.exe"
+          rmdir "$APP_DIR"
 
       - name: Measure directory size after application uninstall
         run: |
