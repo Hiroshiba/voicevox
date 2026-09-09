@@ -671,6 +671,13 @@ jobs:
           mapfile -t archive_parts < <(printf '%s\n' "$archive_path".[0-9]* | sort -V)
           cat "${archive_parts[@]}" > "$archive_path"
 
+      - name: Disable Spotlight indexing before capacity measurement
+        if: runner.os == 'macOS'
+        run: |
+          # NOTE: Spotlightの索引更新による容量増加を、アンインストール後の残存と誤判定しないため
+          sudo -n mdutil -i off /System/Volumes/Data
+          sudo -n mdutil -s /System/Volumes/Data
+
       - name: Measure filesystem before application install
         run: node "$RUNNER_TEMP/measure-volume.mjs" before
 
