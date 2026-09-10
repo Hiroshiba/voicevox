@@ -1,4 +1,4 @@
-import { colors, Dark, setCssVar } from "quasar";
+import { colors, setCssVar } from "quasar";
 import type { EditorFontType, ThemeColorType, ThemeConf } from "@/type/preload";
 
 /** テーマの設定をCSSへ反映する */
@@ -26,7 +26,6 @@ export function setThemeToCss(theme: ThemeConf) {
     const cssColor = `${r}, ${g}, ${b}`;
     document.documentElement.style.setProperty(propertyName, cssColor);
   }
-  Dark.set(theme.isDark);
   setCssVar("primary", theme.colors["primary"]);
   setCssVar("warning", theme.colors["warning"]);
 

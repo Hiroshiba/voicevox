@@ -339,9 +339,6 @@ export type MoraDataType =
   | "pause"
   | "voicing";
 
-export const themeSettingSchema = z.enum(["Default", "Dark", "system"]);
-export type ThemeSetting = z.infer<typeof themeSettingSchema>;
-
 export type ThemeColorType =
   | "primary"
   | "display"
@@ -474,7 +471,7 @@ export function getConfigSchema({ isMac }: { isMac: boolean }) {
       })
       .prefault({}),
     defaultPresetKeys: z.record(voiceIdSchema, presetKeySchema).default({}),
-    currentTheme: themeSettingSchema.default("Default"),
+    currentTheme: z.string().default("Default"),
     experimentalSetting: experimentalSettingSchema.prefault({}),
     acceptRetrieveTelemetry: z
       .enum(["Unconfirmed", "Accepted", "Refused"])

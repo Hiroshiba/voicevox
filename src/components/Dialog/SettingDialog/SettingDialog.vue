@@ -533,7 +533,6 @@ import { createLogger } from "@/helpers/log";
 import { useRootMiscSetting } from "@/composables/useRootMiscSetting";
 import { isProduction } from "@/helpers/platform";
 import { ExhaustiveError } from "@/type/utility";
-import { themeSettingSchema } from "@/type/preload";
 
 type SamplingRateOption = EngineSettingType["outputSamplingRate"];
 
@@ -646,9 +645,7 @@ const undoableTrackOperations = computed({
 const currentThemeNameComputed = computed({
   get: () => store.state.currentTheme,
   set: (currentTheme: string) => {
-    void store.actions.SET_CURRENT_THEME_SETTING({
-      currentTheme: themeSettingSchema.parse(currentTheme),
-    });
+    void store.actions.SET_CURRENT_THEME_SETTING({ currentTheme });
   },
 });
 

@@ -8,8 +8,8 @@
 import { ref, watch, computed, onUnmounted, onMounted } from "vue";
 import "pixi.js/unsafe-eval";
 import * as PIXI from "pixi.js";
+import { Dark } from "quasar";
 import { useStore } from "@/store";
-import { useTheme } from "@/composables/useTheme";
 import { frequencyToNoteNumber, secondToTick } from "@/sing/music";
 import {
   UNVOICED_PHONEMES,
@@ -42,9 +42,8 @@ const props = defineProps<{
 
 const { warn, error } = createLogger("SequencerPitch");
 const store = useStore();
-const theme = useTheme();
 const tpqn = computed(() => store.state.tpqn);
-const isDark = computed(() => theme.value.isDark);
+const isDark = computed(() => Dark.isActive);
 const tempos = computed(() => store.state.tempos);
 const pitchEditData = computed(() => {
   return store.getters.SELECTED_TRACK.pitchEditData;

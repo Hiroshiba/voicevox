@@ -1,5 +1,6 @@
 import { computed, inject, provide, ref, watch } from "vue";
 import type { InjectionKey } from "vue";
+import { Dark } from "quasar";
 import type {
   EnginePackageEmbeddedInfo,
   EnginePackageCurrentInfo,
@@ -7,8 +8,8 @@ import type {
 } from "@/domain/enginePackage";
 import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
 import { setThemeToCss } from "@/domain/dom";
-import { provideTheme } from "@/composables/useTheme";
-import type { EngineId, ThemeSetting } from "@/type/preload";
+import { themes } from "@/domain/theme";
+import type { EngineId } from "@/type/preload";
 import { assertNonNullable, UnreachableError } from "@/type/utility";
 import { showErrorDialog } from "@/components/Dialog/Dialog";
 
@@ -83,14 +84,13 @@ export type LaunchEditorState =
   | { enabled: false; reason: string };
 
 function createWelcomeStore() {
-  const currentTheme = ref<ThemeSetting>();
-  const resolvedTheme = provideTheme(currentTheme);
   watch(
-    resolvedTheme,
-    (theme) => {
-      if (theme != undefined) setThemeToCss(theme);
+    () => Dark.isActive,
+    (isDark) => {
+      const theme = themes.find((value) => value.isDark === isDark);
+      assertNonNullable(theme, `Theme not found for dark mode: ${isDark}`);
+      setThemeToCss(theme);
     },
-    { flush: "sync" },
   );
 
   const allEngineState = ref<AllEngineState>({
@@ -269,7 +269,20 @@ function createWelcomeStore() {
   };
 
   const applyThemeFromConfig = async () => {
-    currentTheme.value = await window.welcomeBackend.getCurrentTheme();
+    const currentTheme = await window.welcomeBackend.getCurrentTheme();
+    if (currentTheme === "system") {
+      Dark.set("auto");
+    }
+    const theme = themes.find((value) => {
+      return currentTheme === "system"
+        ? value.isDark === Dark.isActive
+        : value.name === currentTheme;
+    });
+    assertNonNullable(theme, `Theme not found: ${currentTheme}`);
+    if (currentTheme !== "system") {
+      Dark.set(theme.isDark);
+    }
+    setThemeToCss(theme);
   };
 
   const installEngine = async (engineId: EngineId) => {

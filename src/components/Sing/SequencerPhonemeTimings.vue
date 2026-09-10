@@ -7,8 +7,8 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted, onMounted, toRaw } from "vue";
 import * as PIXI from "pixi.js";
+import { Dark } from "quasar";
 import { useStore } from "@/store";
-import { useTheme } from "@/composables/useTheme";
 import { useMounted } from "@/composables/useMounted";
 import { secondToTick } from "@/sing/music";
 import { tickToBaseX, type ViewportInfo } from "@/sing/viewHelper";
@@ -36,9 +36,8 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
-const theme = useTheme();
 const tpqn = computed(() => store.state.tpqn);
-const isDark = computed(() => theme.value.isDark);
+const isDark = computed(() => Dark.isActive);
 const tempos = computed(() => store.state.tempos);
 const previewPhonemeTiming = computed(() => props.previewPhonemeTiming);
 const phonemeTimingInfos = computed(() => props.phonemeTimingInfos);

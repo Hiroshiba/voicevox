@@ -1,5 +1,4 @@
-import type { NativeThemeType, ThemeConf, ThemeSetting } from "@/type/preload";
-import { ExhaustiveError } from "@/type/utility";
+import type { ThemeConf } from "@/type/preload";
 
 const light = {
   name: "Default",
@@ -40,34 +39,3 @@ const dark = {
 } as const satisfies ThemeConf;
 
 export const themes = [light, dark];
-
-/** 選択した設定と環境の明暗から表示するテーマを決める */
-export function resolveTheme(
-  setting: ThemeSetting,
-  prefersDark: boolean,
-): ThemeConf {
-  switch (setting) {
-    case "Default":
-      return light;
-    case "Dark":
-      return dark;
-    case "system":
-      return prefersDark ? dark : light;
-    default:
-      throw new ExhaustiveError(setting);
-  }
-}
-
-/** テーマの選択をネイティブの追従設定へ変換する */
-export function resolveNativeTheme(setting: ThemeSetting): NativeThemeType {
-  switch (setting) {
-    case "Default":
-      return "light";
-    case "Dark":
-      return "dark";
-    case "system":
-      return "system";
-    default:
-      throw new ExhaustiveError(setting);
-  }
-}
