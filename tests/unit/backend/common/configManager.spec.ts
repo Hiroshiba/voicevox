@@ -155,6 +155,34 @@ it("0.19.1からのマイグレーション時にハミング・ソングスタ�
   expect(remainingStyleIds.length).toBe(Object.keys(presets.items).length);
 });
 
+it.each([true, false])(
+  "複数選択の設定が%sでも読み込み後の保存対象から除かれる",
+  async (enableMultiSelect) => {
+    vi.spyOn(TestConfigManager.prototype, "exists").mockImplementation(
+      async () => true,
+    );
+    const saveSpy = vi
+      .spyOn(TestConfigManager.prototype, "save")
+      .mockImplementation(async () => undefined);
+    vi.spyOn(TestConfigManager.prototype, "load").mockImplementation(
+      async () => ({
+        ...configBase,
+        enableMultiSelect,
+        inheritAudioInfo: false,
+      }),
+    );
+
+    const configManager = new TestConfigManager();
+    await configManager.initialize();
+    expect(configManager.getAll()).not.toHaveProperty("enableMultiSelect");
+    expect(configManager.get("inheritAudioInfo")).toBe(false);
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+    const savedData = saveSpy.mock.calls[0][0];
+    expect(savedData).not.toHaveProperty("enableMultiSelect");
+    expect(savedData.inheritAudioInfo).toBe(false);
+  },
+);
+
 it("getできる", async () => {
   vi.spyOn(TestConfigManager.prototype, "exists").mockImplementation(
     async () => true,
