@@ -9,6 +9,7 @@ import { z } from "zod";
 import { ref, watch, computed, onUnmounted, onMounted } from "vue";
 import * as PIXI from "pixi.js";
 import { useStore } from "@/store";
+import { useTheme } from "@/composables/useTheme";
 import { useMounted } from "@/composables/useMounted";
 import { tickToBaseX, type ViewportInfo } from "@/sing/viewHelper";
 import { secondToTick, tickToSecond } from "@/sing/music";
@@ -32,9 +33,10 @@ const props = defineProps<{
 const { warn } = createLogger("SequencerWaveform");
 
 const store = useStore();
+const theme = useTheme();
 const tpqn = computed(() => store.state.tpqn);
 const tempos = computed(() => store.state.tempos);
-const isDark = computed(() => store.state.currentTheme === "Dark");
+const isDark = computed(() => theme.value.isDark);
 const selectedTrackId = computed(() => store.getters.SELECTED_TRACK_ID);
 const scaleX = computed(() => props.viewportInfo.scaleX);
 

@@ -2,6 +2,8 @@ import { setup, type Preview } from "@storybook/vue3-vite";
 import { Quasar, Dialog, Loading, Notify } from "quasar";
 import iconSet from "quasar/icon-set/material-icons";
 import { withThemeByDataAttribute } from "@storybook/addon-themes";
+import { watchEffect } from "vue";
+import { z } from "zod";
 import { addActionsWithEmits } from "./utils/argTypesEnhancers";
 import { store, storeKey } from "@/store";
 import { markdownItPlugin } from "@/plugins/markdownItPlugin";
@@ -9,9 +11,9 @@ import { markdownItPlugin } from "@/plugins/markdownItPlugin";
 import "@quasar/extras/material-icons/material-icons.css";
 import "quasar/dist/quasar.sass";
 import "@/styles/_index.scss";
-import { UnreachableError } from "@/type/utility";
+import { assertNonNullable } from "@/type/utility";
 import { setThemeToCss, setFontToCss } from "@/domain/dom";
-import { themes } from "@/domain/theme";
+import { provideTheme } from "@/composables/useTheme";
 
 setup((app) => {
   app.use(Quasar, {
@@ -73,37 +75,31 @@ const preview: Preview = {
     }),
 
     // テーマの設定をCSSへ反映する
-    () => {
-      let observer: MutationObserver | undefined = undefined;
+    (_, context) => {
+      const { themeOverride } = z
+        .object({
+          themeOverride: z.enum(["light", "dark"]).optional(),
+        })
+        .parse(context.parameters.themes ?? {});
       return {
-        async mounted() {
+        setup() {
           setFontToCss("default");
-
-          const root = document.documentElement;
-          let lastIsDark: boolean | undefined = undefined;
-          observer = new MutationObserver(() => {
-            const isDark = root.getAttribute("is-dark-theme") === "true";
-            if (lastIsDark === isDark) return;
-            lastIsDark = isDark;
-
-            const theme = themes.find((theme) => theme.isDark === isDark);
-            if (!theme)
-              throw new UnreachableError("assert: theme !== undefined");
-
-            setThemeToCss(theme);
+          const theme = provideTheme(() => {
+            const selectedTheme = z
+              .enum(["light", "dark"])
+              .default("light")
+              .parse(themeOverride ?? context.globals.theme);
+            return selectedTheme === "dark" ? "Dark" : "Default";
           });
-
-          observer.observe(root, {
-            attributes: true,
-            attributeFilter: ["is-dark-theme"],
-          });
+          watchEffect(
+            () => {
+              const currentTheme = theme.value;
+              assertNonNullable(currentTheme);
+              setThemeToCss(currentTheme);
+            },
+            { flush: "sync" },
+          );
         },
-        unmounted() {
-          if (observer) {
-            observer.disconnect();
-          }
-        },
-
         template: `<story />`,
       };
     },

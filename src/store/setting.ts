@@ -1,7 +1,7 @@
 import type { SettingStoreState, SettingStoreTypes } from "./type";
 import { createUILockAction } from "./ui";
 import { createPartialStore } from "./vuex";
-import { themes } from "@/domain/theme";
+import { resolveNativeTheme, themes } from "@/domain/theme";
 import {
   hideAllLoadingScreen,
   showAlertDialog,
@@ -15,6 +15,7 @@ import {
   EngineId,
   type ConfirmedTips,
   type RootMiscSettingType,
+  type ThemeSetting,
 } from "@/type/preload";
 import type { IsEqual } from "@/type/utility";
 import type { HotkeySettingType } from "@/domain/hotkeyAction";
@@ -91,11 +92,11 @@ export const settingStore = createPartialStore<SettingStoreTypes>({
         });
       });
 
-      mutations.SET_AVAILABLE_THEMES({
-        themes,
-      });
       void actions.SET_CURRENT_THEME_SETTING({
         currentTheme: await window.backend.getSetting("currentTheme"),
+      });
+      mutations.SET_AVAILABLE_THEMES({
+        themes,
       });
 
       void actions.SET_ACCEPT_RETRIEVE_TELEMETRY({
@@ -241,20 +242,12 @@ export const settingStore = createPartialStore<SettingStoreTypes>({
   },
 
   SET_CURRENT_THEME_SETTING: {
-    mutation(state, { currentTheme }: { currentTheme: string }) {
+    mutation(state, { currentTheme }: { currentTheme: ThemeSetting }) {
       state.currentTheme = currentTheme;
     },
-    action({ state, mutations }, { currentTheme }: { currentTheme: string }) {
+    action({ mutations }, { currentTheme }: { currentTheme: ThemeSetting }) {
       void window.backend.setSetting("currentTheme", currentTheme);
-      const theme = state.availableThemes.find((value) => {
-        return value.name == currentTheme;
-      });
-
-      if (theme == undefined) {
-        throw Error("Theme not found");
-      }
-
-      window.backend.setNativeTheme(theme.isDark ? "dark" : "light");
+      window.backend.setNativeTheme(resolveNativeTheme(currentTheme));
 
       mutations.SET_CURRENT_THEME_SETTING({
         currentTheme: currentTheme,

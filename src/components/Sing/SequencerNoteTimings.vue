@@ -8,6 +8,7 @@
 import { ref, watch, computed, onUnmounted, onMounted, toRaw } from "vue";
 import * as PIXI from "pixi.js";
 import { useStore } from "@/store";
+import { useTheme } from "@/composables/useTheme";
 import { useMounted } from "@/composables/useMounted";
 import { tickToBaseX, type ViewportInfo } from "@/sing/viewHelper";
 import { getDefaultLyric } from "@/sing/domain";
@@ -20,8 +21,9 @@ const props = defineProps<{
 }>();
 
 const store = useStore();
+const theme = useTheme();
 const tpqn = computed(() => store.state.tpqn);
-const isDark = computed(() => store.state.currentTheme === "Dark");
+const isDark = computed(() => theme.value.isDark);
 const defaultLyricMode = computed(() => store.state.defaultLyricMode);
 const selectedTrack = computed(() => store.getters.SELECTED_TRACK);
 

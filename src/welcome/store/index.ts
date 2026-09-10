@@ -1,4 +1,4 @@
-import { computed, inject, provide, ref } from "vue";
+import { computed, inject, provide, ref, watch } from "vue";
 import type { InjectionKey } from "vue";
 import type {
   EnginePackageEmbeddedInfo,
@@ -7,8 +7,8 @@ import type {
 } from "@/domain/enginePackage";
 import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
 import { setThemeToCss } from "@/domain/dom";
-import { themes } from "@/domain/theme";
-import type { EngineId } from "@/type/preload";
+import { provideTheme } from "@/composables/useTheme";
+import type { EngineId, ThemeSetting } from "@/type/preload";
 import { assertNonNullable, UnreachableError } from "@/type/utility";
 import { showErrorDialog } from "@/components/Dialog/Dialog";
 
@@ -83,6 +83,16 @@ export type LaunchEditorState =
   | { enabled: false; reason: string };
 
 function createWelcomeStore() {
+  const currentTheme = ref<ThemeSetting>();
+  const resolvedTheme = provideTheme(currentTheme);
+  watch(
+    resolvedTheme,
+    (theme) => {
+      if (theme != undefined) setThemeToCss(theme);
+    },
+    { flush: "sync" },
+  );
+
   const allEngineState = ref<AllEngineState>({
     type: "uninitialized",
   });
@@ -259,10 +269,7 @@ function createWelcomeStore() {
   };
 
   const applyThemeFromConfig = async () => {
-    const currentTheme = await window.welcomeBackend.getCurrentTheme();
-    const theme = themes.find((value) => value.name === currentTheme);
-    assertNonNullable(theme, `Theme not found: ${currentTheme}`);
-    setThemeToCss(theme);
+    currentTheme.value = await window.welcomeBackend.getCurrentTheme();
   };
 
   const installEngine = async (engineId: EngineId) => {

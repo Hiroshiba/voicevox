@@ -36,12 +36,14 @@ import MenuBar from "@/components/Menu/MenuBar/MenuBar.vue";
 import { useMenuBarData as useTalkMenuBarData } from "@/components/Talk/menuBarData";
 import { useMenuBarData as useSingMenuBarData } from "@/components/Sing/menuBarData";
 import { setFontToCss, setThemeToCss } from "@/domain/dom";
+import { provideTheme } from "@/composables/useTheme";
 import { concatMenuBarData } from "@/components/Menu/MenuBar/menuBarData";
 import { isElectron } from "@/helpers/platform";
 import { useElectronMenuBarData } from "@/backend/electron/renderer/menuBarData";
 import { removeNullableAndBoolean } from "@/helpers/arrayHelper";
 
 const store = useStore();
+const resolvedTheme = provideTheme(() => store.state.currentTheme);
 
 // TODO: useMenuBarData系の関数をcomposableじゃなくする
 const commonMenuBarData = useCommonMenuBarData(store);
@@ -88,20 +90,23 @@ watchEffect(
 );
 
 // テーマの変更を監視してCSS変数を変更する
-watchEffect(() => {
-  const theme = store.state.availableThemes.find((value) => {
-    return value.name == store.state.currentTheme;
-  });
-  if (theme == undefined) {
-    // NOTE: Vuexが初期化されていない場合はまだテーマが読み込まれていないので無視
-    if (store.state.isVuexReady) {
-      throw Error(`Theme not found: ${store.state.currentTheme}`);
-    } else {
-      return;
+watchEffect(
+  () => {
+    const theme = store.state.availableThemes.find((value) => {
+      return value.name === resolvedTheme.value?.name;
+    });
+    if (theme == undefined) {
+      // NOTE: Vuexが初期化されていない場合はまだテーマが読み込まれていないので無視
+      if (store.state.isVuexReady) {
+        throw Error(`Theme not found: ${store.state.currentTheme}`);
+      } else {
+        return;
+      }
     }
-  }
-  setThemeToCss(theme);
-});
+    setThemeToCss(theme);
+  },
+  { flush: "sync" },
+);
 
 // ソングの再生デバイスを同期
 watchEffect(() => {

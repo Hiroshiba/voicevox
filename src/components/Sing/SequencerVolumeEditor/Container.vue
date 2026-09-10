@@ -31,6 +31,7 @@ import Presentation from "./Presentation.vue";
 import type { VolumeEditorPointerEvent } from "./useVolumeEditorPointerInput";
 import SequencerParameterGrid from "@/components/Sing/SequencerParameterGrid.vue";
 import { useStore } from "@/store";
+import { useTheme } from "@/composables/useTheme";
 import type { VolumeEditTool } from "@/store/type";
 import { useVolumeEditorStateMachine } from "@/composables/useVolumeEditorStateMachine";
 import { relativeVolumeEditMode } from "@/sing/volumeEditMode";
@@ -57,6 +58,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useStore();
+const theme = useTheme();
 const volumeEditMode = relativeVolumeEditMode;
 
 const tool = computed<VolumeEditTool>(() => store.state.sequencerVolumeTool);
@@ -65,7 +67,7 @@ const selectedTrack = computed(() => store.getters.SELECTED_TRACK);
 const tempos = computed(() => store.state.tempos);
 const tpqn = computed(() => store.state.tpqn);
 const editorFrameRate = computed(() => store.state.editorFrameRate);
-const isDark = computed(() => store.state.currentTheme === "Dark");
+const isDark = computed(() => theme.value.isDark);
 const uiLocked = computed(() => store.getters.UI_LOCKED);
 
 const editableFrameRanges = computed<readonly VolumeEditableFrameRange[]>(() =>
