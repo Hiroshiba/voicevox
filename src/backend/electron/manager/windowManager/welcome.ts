@@ -222,7 +222,7 @@ class WelcomeWindowManager {
   }
 
   /** Welcomeウィンドウの起動コンテキストを取得する。 */
-  public getLaunchContext(): WelcomeWindowLaunchContext {
+  public getLaunchContext() {
     if (this.launchContextState.type === "uninitialized") {
       throw new Error(
         "Welcomeウィンドウの起動コンテキストが初期化されていません。",

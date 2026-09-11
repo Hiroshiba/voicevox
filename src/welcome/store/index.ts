@@ -6,10 +6,7 @@ import type {
   EnginePackageLatestInfo,
 } from "@/domain/enginePackage";
 import type { RuntimeTarget } from "@/domain/defaultEngine/latestDefaultEngine";
-import {
-  welcomeWindowLaunchContextSchema,
-  type WelcomeWindowLaunchContext,
-} from "@/domain/welcome";
+import { welcomeWindowLaunchContextSchema } from "@/domain/welcome";
 import { setThemeToCss } from "@/domain/dom";
 import { themes } from "@/domain/theme";
 import type { EngineId } from "@/type/preload";
@@ -281,7 +278,7 @@ function createWelcomeStore() {
     setThemeToCss(theme);
   };
 
-  const installEngine = async (engineId: EngineId): Promise<boolean> => {
+  const installEngine = async (engineId: EngineId) => {
     const target = getSelectedRuntimeTarget(engineId);
     if (
       automaticInstallState.type === "waiting" &&
@@ -347,10 +344,9 @@ function createWelcomeStore() {
   };
 
   const initialize = async () => {
-    const launchContext: WelcomeWindowLaunchContext =
-      welcomeWindowLaunchContextSchema.parse(
-        await window.welcomeBackend.getWelcomeWindowLaunchContext(),
-      );
+    const launchContext = welcomeWindowLaunchContextSchema.parse(
+      await window.welcomeBackend.getWelcomeWindowLaunchContext(),
+    );
     switch (launchContext.type) {
       case "initialSetup":
         automaticInstallState = {
