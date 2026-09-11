@@ -145,7 +145,7 @@ const builderOptions: ElectronBuilderConfiguration = {
   nsisWeb: {
     artifactName: NSIS_WEB_ARTIFACT_NAME || undefined,
     include:
-      installerMode === "embed-engine"
+      installerMode === "embed"
         ? "build/installer.nsh"
         : "build/installer-web.nsh",
     oneClick: false,

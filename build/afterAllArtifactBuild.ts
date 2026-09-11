@@ -4,7 +4,7 @@ import { parseInstallerMode } from "./installerMode";
 
 /** NSIS Web 成果物をエンジンモードに応じて処理する。 */
 async function afterNsisWebArtifactBuild(target: Target) {
-  if (parseInstallerMode(process.env.VOICEVOX_ENGINE_MODE) === "embed-engine") {
+  if (parseInstallerMode(process.env.VOICEVOX_ENGINE_MODE) === "embed") {
     await splitNsisArchive(target);
   }
 }
