@@ -120,11 +120,8 @@ pnpm run browser:serve
 
 ## ビルド
 
-ビルド用環境変数 `VOICEVOX_ENGINE_MODE` でインストーラー方式を指定します。
-分離版は `download`、同梱版は `embed` を指定してください。
-
 ```bash
-pnpm exec cross-env VOICEVOX_ENGINE_MODE=download pnpm run electron:build
+pnpm run electron:build
 ```
 
 ### Github Actions でビルド
