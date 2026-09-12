@@ -127,6 +127,35 @@ function createWelcomeStore() {
     return { enabled: true };
   });
 
+  const initialSetupState = computed<"manual" | "preparing" | "failed">(() => {
+    const launchContext = welcomeWindowLaunchContext.value;
+    if (launchContext?.type !== "initialSetup") {
+      return "manual";
+    }
+    if (allEngineState.value.type !== "loaded") {
+      return "preparing";
+    }
+
+    const engineState =
+      allEngineState.value.engineStates[launchContext.engineId];
+    if (engineState.latestInfo.type === "fetchError") {
+      return "failed";
+    }
+    if (engineState.latestInfo.type !== "fetched") {
+      return "preparing";
+    }
+    if (engineState.latestInfo.progress.type !== "idle") {
+      return "preparing";
+    }
+    if (engineState.currentInfo.status === "installed") {
+      return "manual";
+    }
+    if (!isAutomaticInstallPending.value) {
+      return "failed";
+    }
+    return "preparing";
+  });
+
   const getDefaultRuntimeTarget = (
     engineId: EngineId,
     latestInfo: EnginePackageLatestInfo,
@@ -364,6 +393,7 @@ function createWelcomeStore() {
   return {
     allEngineState,
     launchEditorState,
+    initialSetupState,
     getSelectedRuntimeTarget,
     setSelectedRuntimeTarget,
     getEngineState,

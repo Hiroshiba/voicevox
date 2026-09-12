@@ -10,8 +10,20 @@
             <BaseScrollArea>
               <div class="inner">
                 <BaseDocumentView class="welcome-intro">
-                  VOICEVOXエディタを使用するには、音声合成エンジンのインストールが必要です。
-                  以下のエンジン一覧から、インストールまたは更新を行ってください。
+                  <template
+                    v-if="store.initialSetupState.value === 'preparing'"
+                  >
+                    音声合成エンジンを準備しています。準備が完了すると、自動でエディタが開きます。
+                  </template>
+                  <template
+                    v-else-if="store.initialSetupState.value === 'failed'"
+                  >
+                    音声合成エンジンの準備に失敗しました。以下のエンジン一覧から再試行してください。
+                  </template>
+                  <template v-else>
+                    VOICEVOXエディタを使用するには、音声合成エンジンのインストールが必要です。
+                    以下のエンジン一覧から、インストールまたは更新を行ってください。
+                  </template>
                 </BaseDocumentView>
 
                 <EngineList />
