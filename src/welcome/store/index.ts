@@ -228,7 +228,10 @@ function createWelcomeStore() {
     };
 
     await Promise.all(
-      engineIds.map((engineId) => fetchCurrentEngineInfo(engineId)),
+      engineIds.map(async (engineId) => {
+        await fetchCurrentEngineInfo(engineId);
+        await fetchEngineLatestInfo(engineId);
+      }),
     );
   };
 
@@ -240,7 +243,6 @@ function createWelcomeStore() {
       await window.welcomeBackend.getEnginePackageCurrentInfo(engineId);
     const engineState = allEngineState.value.engineStates[engineId];
     engineState.currentInfo = currentInfo;
-    await fetchEngineLatestInfo(engineId);
   };
 
   const fetchEngineLatestInfo = async (engineId: EngineId) => {
