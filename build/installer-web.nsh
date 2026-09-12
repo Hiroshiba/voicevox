@@ -8,4 +8,4 @@
 AutoCloseWindow true
 !endif
 
-!include "${__FILEDIR__}installer.nsh"
+!include "${__FILEDIR__}\installer.nsh"
